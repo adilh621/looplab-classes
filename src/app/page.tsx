@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getApiBase } from "@/lib/api";
 
 type Me = {
   authenticated: boolean;
@@ -11,14 +12,14 @@ type Me = {
 
 export default function Home() {
   const [me, setMe] = useState<Me | null>(null);
-  const backend = process.env.NEXT_PUBLIC_BACKEND_URL!;
+  const backend = getApiBase();
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
         const res = await fetch(`${backend}/session/me`, {
-          credentials: "include", // <<— include cookie
+          credentials: "include", // sends cookie
           cache: "no-store",
         });
         const data = await res.json();
@@ -33,10 +34,7 @@ export default function Home() {
   }, [backend]);
 
   async function logout() {
-    await fetch(`${backend}/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
+    await fetch(`${backend}/auth/logout`, { method: "POST", credentials: "include" });
     setMe({ authenticated: false });
   }
 
@@ -47,13 +45,14 @@ export default function Home() {
           <p>Loading…</p>
         ) : me.authenticated ? (
           <>
-            <h1 className="text-2xl font-semibold">Welcome back{me.name ? `, ${me.name}` : ""} 👋</h1>
+            <h1 className="text-2xl font-semibold">
+              Welcome back{me.name ? `, ${me.name}` : ""} 👋
+            </h1>
             <p className="text-gray-600">You’re signed in as {me.email}</p>
             <div className="flex gap-3 justify-center">
               <button onClick={logout} className="px-4 py-2 rounded-lg bg-gray-200">
                 Log out
               </button>
-              {/* TODO: link to your dashboard */}
               <Link href="/dashboard" className="px-4 py-2 rounded-lg bg-black text-white">
                 Go to Dashboard
               </Link>

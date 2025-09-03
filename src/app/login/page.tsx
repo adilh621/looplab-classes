@@ -1,16 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { getApiBase } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const search = useSearchParams();
+  const initialEmail = search.get("email") || "";
+
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const backend = process.env.NEXT_PUBLIC_BACKEND_URL!;
+  const backend = getApiBase();
+
+  useEffect(() => {
+    // If user manually hits /login with no backend configured, fail early
+    if (!backend) setError("Backend URL not configured.");
+  }, [backend]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,17 +29,17 @@ export default function LoginPage() {
       const res = await fetch(`${backend}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // <<— important: send/receive cookies
+        credentials: "include", // <<— sets the httpOnly cookie
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Login failed (${res.status})`);
       }
-      router.push("/"); // go home
+      router.push("/"); // home
     } catch (err: unknown) {
       if (err instanceof Error) {
-        setError(err.message);
+        setError(err.message || "Something went wrong.");
       } else {
         setError("Something went wrong.");
       }
