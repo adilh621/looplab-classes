@@ -1,14 +1,10 @@
+// app/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getApiBase } from "@/lib/api";
-
-type Me = {
-  authenticated: boolean;
-  email?: string;
-  name?: string | null;
-};
+import type { Me } from "@/lib/auth";
 
 export default function Home() {
   const [me, setMe] = useState<Me | null>(null);
@@ -19,7 +15,7 @@ export default function Home() {
     (async () => {
       try {
         const res = await fetch(`${backend}/session/me`, {
-          credentials: "include", // sends cookie
+          credentials: "include",
           cache: "no-store",
         });
         const data = await res.json();
@@ -28,9 +24,7 @@ export default function Home() {
         if (mounted) setMe({ authenticated: false });
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [backend]);
 
   async function logout() {
@@ -45,9 +39,7 @@ export default function Home() {
           <p>Loading…</p>
         ) : me.authenticated ? (
           <>
-            <h1 className="text-2xl font-semibold">
-              Welcome back{me.name ? `, ${me.name}` : ""} 👋
-            </h1>
+            <h1 className="text-2xl font-semibold">Welcome{me.name ? `, ${me.name}` : ""} 👋</h1>
             <p className="text-gray-600">You’re signed in as {me.email}</p>
             <div className="flex gap-3 justify-center">
               <button onClick={logout} className="px-4 py-2 rounded-lg bg-gray-200">

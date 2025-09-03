@@ -1,3 +1,4 @@
+// app/sign-up/page.tsx
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
@@ -42,14 +43,10 @@ function SignUpInner() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Request failed (${res.status})`);
       }
-      // ✅ Redirect to login (prefill the email)
+      // Redirect to login (prefill the email)
       router.push(`/login?email=${encodeURIComponent(email)}`);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message || "Something went wrong.");
-      } else {
-        setError("Something went wrong.");
-      }
+      setError(err instanceof Error ? err.message || "Something went wrong." : "Something went wrong.");
     } finally {
       setSubmitting(false);
     }
@@ -61,7 +58,7 @@ function SignUpInner() {
         <h1 className="text-2xl font-semibold mb-2">Finish Creating Your Account</h1>
         <p className="text-sm text-gray-600 mb-6">Choose a password to activate your LoopLab Classes account.</p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" aria-live="polite">
           <div>
             <label className="block text-sm font-medium mb-1">Email</label>
             <input value={email} disabled className="w-full border rounded-lg px-3 py-2 bg-gray-50 text-gray-700" />

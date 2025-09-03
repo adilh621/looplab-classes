@@ -1,11 +1,10 @@
+// app/login/page.tsx
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { getApiBase } from "@/lib/api";
 
-// make this route dynamic to avoid static prerender
 export const dynamic = "force-dynamic";
 
 function LoginInner() {
@@ -39,13 +38,9 @@ function LoginInner() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Login failed (${res.status})`);
       }
-      router.push("/"); // go home
+      router.push("/");
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message || "Something went wrong.");
-      } else {
-        setError("Something went wrong.");
-      }
+      setError(err instanceof Error ? err.message || "Something went wrong." : "Something went wrong.");
     } finally {
       setSubmitting(false);
     }
@@ -64,6 +59,7 @@ function LoginInner() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              autoFocus
             />
           </div>
           <div>
