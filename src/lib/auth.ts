@@ -1,8 +1,28 @@
 // app/lib/auth.ts
+export type ClientIntake = {
+  id: number;
+  email: string;
+  parent_name?: string | null;
+  student_name?: string | null;
+  student_age?: number | null;
+  phone?: string | null;
+  timezone?: string | null;
+  preferred_days?: string[] | null;
+  preferred_times?: string[] | null;
+  course?: string | null;
+  service?: string | null;
+  start_date?: string | null;
+  notes?: string | null;
+  source?: string | null;
+  consent?: boolean | null;
+  status: string;
+};
+
 export type Me = {
   authenticated: boolean;
-  email?: string;
+  email?: string | null;
   name?: string | null;
+  intake?: ClientIntake | null;
 };
 
 export async function fetchMe(backend: string, cookieHeader?: string): Promise<Me> {
