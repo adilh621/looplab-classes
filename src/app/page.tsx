@@ -39,7 +39,9 @@ export default function Home() {
           <p>Loading…</p>
         ) : me.authenticated ? (
           <>
-            <h1 className="text-2xl font-semibold">Welcome{me.name ? `, ${me.name}` : ""} 👋</h1>
+            <h1 className="text-2xl font-semibold">
+              Welcome{me.name ? `, ${me.name}` : ""} 👋
+            </h1>
             <p className="text-gray-600">You’re signed in as {me.email}</p>
             <div className="flex gap-3 justify-center">
               <button onClick={logout} className="px-4 py-2 rounded-lg bg-gray-200">
@@ -57,8 +59,11 @@ export default function Home() {
               <Link href="/login" className="px-4 py-2 rounded-lg bg-black text-white">
                 Log in
               </Link>
-              <Link href="/sign-up" className="px-4 py-2 rounded-lg bg-gray-200">
-                I have an invite
+              <Link
+                href="https://looplab.adilh.co/"
+                className="px-4 py-2 rounded-lg bg-gray-200"
+              >
+                Get an invite
               </Link>
             </div>
           </>
