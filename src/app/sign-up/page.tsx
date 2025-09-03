@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getApiBase } from "@/lib/api";
 
-export default function SignUpPage() {
+export const dynamic = "force-dynamic";
+
+function SignUpInner() {
   const router = useRouter();
   const search = useSearchParams();
   const token = search.get("token") || "";
@@ -34,14 +36,13 @@ export default function SignUpPage() {
       const res = await fetch(`${backend}/auth/claim-invite-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // no cookie set yet here; backend just stores hash + activates
         body: JSON.stringify({ token, password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Request failed (${res.status})`);
       }
-      // ✅ Redirect to login and prefill email so the user just enters password
+      // ✅ Redirect to login (prefill the email)
       router.push(`/login?email=${encodeURIComponent(email)}`);
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -103,5 +104,13 @@ export default function SignUpPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center">Loading…</div>}>
+      <SignUpInner />
+    </Suspense>
   );
 }

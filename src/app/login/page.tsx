@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { getApiBase } from "@/lib/api";
 
-export default function LoginPage() {
+// make this route dynamic to avoid static prerender
+export const dynamic = "force-dynamic";
+
+function LoginInner() {
   const router = useRouter();
   const search = useSearchParams();
   const initialEmail = search.get("email") || "";
@@ -17,7 +21,6 @@ export default function LoginPage() {
   const backend = getApiBase();
 
   useEffect(() => {
-    // If user manually hits /login with no backend configured, fail early
     if (!backend) setError("Backend URL not configured.");
   }, [backend]);
 
@@ -29,14 +32,14 @@ export default function LoginPage() {
       const res = await fetch(`${backend}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // <<— sets the httpOnly cookie
+        credentials: "include", // set cookie
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data?.detail || `Login failed (${res.status})`);
       }
-      router.push("/"); // home
+      router.push("/"); // go home
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message || "Something went wrong.");
@@ -85,5 +88,13 @@ export default function LoginPage() {
         </form>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center">Loading…</div>}>
+      <LoginInner />
+    </Suspense>
   );
 }
