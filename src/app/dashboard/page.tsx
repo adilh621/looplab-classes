@@ -137,7 +137,7 @@ export default function DashboardPage() {
   };
 
   // PATCH /me helper
-  async function updateMe(payload: Record<string, any>) {
+  async function updateMe(payload: Record<string, unknown>) {
     const res = await fetch(`${backend}/me`, {
       method: "PATCH",
       credentials: "include",
@@ -251,7 +251,11 @@ export default function DashboardPage() {
           className="space-y-4"
           onSubmit={async (e) => {
             e.preventDefault();
-            const payload: any = {
+            const payload: {
+              student_name: string | null;
+              service: string | null;
+              student_age?: number;
+            } = {
               student_name: formStudent.student_name || null,
               service: formStudent.service || null,
             };
