@@ -23,6 +23,7 @@ export default function DashboardPage() {
         });
         const data: Me = await res.json();
         if (!mounted) return;
+        console.log("[looplab] /session/me", data); // debug: see exactly what we got
         setMe(data);
         setLoading(false);
 
@@ -32,7 +33,7 @@ export default function DashboardPage() {
         }
       } catch {
         if (!mounted) return;
-        setMe({ authenticated: false });
+        setMe({ authenticated: false } as Me);
         setLoading(false);
         router.replace("/login");
       }
@@ -53,8 +54,25 @@ export default function DashboardPage() {
   // Safe fallbacks
   const parentName = me.name ?? me.intake?.parent_name ?? "there";
   const studentName = me.intake?.student_name ?? "your student";
-  const preferredDays = me.intake?.preferred_days ?? [];
-  const service = me.intake?.service ?? undefined;
+
+  // Prefer array; if string, try JSON -> fallback to splitting by , / " and "
+  const rawPreferred = me.intake?.preferred_days as unknown;
+  const preferredDays = Array.isArray(rawPreferred)
+    ? (rawPreferred as string[])
+    : typeof rawPreferred === "string"
+      ? (() => {
+          try {
+            const parsed = JSON.parse(rawPreferred);
+            return Array.isArray(parsed) ? parsed.map(String) : rawPreferred.split(/,|\/| and /i).map(s => s.trim()).filter(Boolean);
+          } catch {
+            return rawPreferred.split(/,|\/| and /i).map(s => s.trim()).filter(Boolean);
+          }
+        })()
+      : [];
+
+  const service = typeof me.intake?.service === "string"
+    ? me.intake!.service!
+    : (me.intake?.service != null ? String(me.intake.service) : undefined);
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
@@ -128,6 +146,15 @@ export default function DashboardPage() {
             <p className="text-sm text-gray-500">No days selected yet.</p>
           )}
         </section>
+
+        {process.env.NODE_ENV !== "production" && (
+          <details className="border rounded-xl p-4">
+            <summary className="cursor-pointer font-medium">Debug: Intake payload</summary>
+            <pre className="mt-2 text-xs overflow-auto">
+              {JSON.stringify(me.intake, null, 2)}
+            </pre>
+          </details>
+        )}
 
         <div className="flex items-center justify-between">
           <Link href="/" className="px-4 py-2 rounded-lg bg-gray-100">
