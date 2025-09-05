@@ -49,21 +49,31 @@ function Modal({
   return (
     <dialog
       ref={ref}
-      className="rounded-2xl p-0 w-[min(92vw,520px)] shadow-lg backdrop:bg-black/30"
+      // key change: flex utilities to center
+      className="p-0 w-[min(92vw,520px)] rounded-2xl shadow-lg 
+                 open:flex open:items-center open:justify-center
+                 backdrop:bg-black/30"
       onClose={onClose}
     >
-      <div className="p-4 border-b">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          <button onClick={onClose} className="rounded-md p-1 hover:bg-gray-100" aria-label="Close">
-            ✕
-          </button>
+      <div className="w-full rounded-2xl bg-white">
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">{title}</h3>
+            <button
+              onClick={onClose}
+              className="rounded-md p-1 hover:bg-gray-100"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
         </div>
+        <div className="p-4">{children}</div>
       </div>
-      <div className="p-4">{children}</div>
     </dialog>
   );
 }
+
 
 export default function DashboardPage() {
   const router = useRouter();
