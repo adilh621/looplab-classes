@@ -1,13 +1,12 @@
 // app/dashboard/page.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getApiBase } from "@/lib/api";
 import type { Me } from "@/lib/auth";
 import { InlineWidget } from "react-calendly";
-
 
 const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
@@ -19,7 +18,6 @@ function EditIconButton({ onClick, label }: { onClick: () => void; label: string
       className="ml-2 inline-flex items-center justify-center rounded-md p-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100"
       title={label}
     >
-      {/* simple pencil icon */}
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M12 20h9" strokeWidth="2" />
         <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" strokeWidth="2" />
@@ -39,8 +37,7 @@ function Modal({
   children: React.ReactNode;
   title: string;
 }) {
-  if (!open) return null; // don’t render when closed
-
+  if (!open) return null;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -64,7 +61,6 @@ function Modal({
     </div>
   );
 }
-
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -146,7 +142,6 @@ export default function DashboardPage() {
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`Update failed (${res.status})`);
-    // refresh session payload after save
     const meRes = await fetch(`${backend}/session/me`, { credentials: "include", cache: "no-store" });
     const meData: Me = await meRes.json();
     setMe(meData);
@@ -244,6 +239,33 @@ export default function DashboardPage() {
           <Link href="/" className="px-4 py-2 rounded-lg bg-gray-100">← Back home</Link>
           <Link href="/login" className="px-4 py-2 rounded-lg bg-black text-white">Switch account</Link>
         </div>
+
+        {/* Calendly section UNDER everything */}
+        <section className="mt-6 rounded-xl border overflow-hidden">
+          <div className="px-4 py-3 flex items-center justify-between bg-white">
+            <h2 className="font-medium">Book a session</h2>
+            <span className="text-xs text-gray-500">Powered by Calendly</span>
+          </div>
+          {/* Let the widget fill the container */}
+          <div className="h-[720px]">
+            <InlineWidget
+              url="https://calendly.com/adilh621/code-coaching"
+              styles={{ height: "100%", width: "100%" }}
+              pageSettings={{
+                hideEventTypeDetails: false,
+                hideLandingPageDetails: false,
+              }}
+              prefill={{
+                name: me.intake?.parent_name ?? undefined,
+                email: (me.email ?? me.intake?.email) ?? undefined,
+              }}
+              utm={{
+                utmMedium: "looplab-dashboard",
+                utmSource: "looplab",
+              }}
+            />
+          </div>
+        </section>
       </div>
 
       {/* Student modal */}
@@ -252,11 +274,7 @@ export default function DashboardPage() {
           className="space-y-4"
           onSubmit={async (e) => {
             e.preventDefault();
-            const payload: {
-              student_name: string | null;
-              service: string | null;
-              student_age?: number;
-            } = {
+            const payload: { student_name: string | null; service: string | null; student_age?: number; } = {
               student_name: formStudent.student_name || null,
               service: formStudent.service || null,
             };
@@ -343,10 +361,6 @@ export default function DashboardPage() {
           </div>
         </form>
       </Modal>
-      <InlineWidget
-        url="https://calendly.com/adilh621/code-coaching"
-        styles={{ height: "700px" }}
-      />
     </main>
   );
 }
