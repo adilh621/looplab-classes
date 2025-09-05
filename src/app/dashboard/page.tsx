@@ -37,40 +37,29 @@ function Modal({
   children: React.ReactNode;
   title: string;
 }) {
-  const ref = useRef<HTMLDialogElement | null>(null);
-
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
+  if (!open) return null; // don’t render when closed
 
   return (
-    <dialog
-      ref={ref}
-      // key change: flex utilities to center
-      className="p-0 w-[min(92vw,520px)] rounded-2xl shadow-lg 
-                 open:flex open:items-center open:justify-center
-                 backdrop:bg-black/30"
-      onClose={onClose}
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
     >
-      <div className="w-full rounded-2xl bg-white">
-        <div className="p-4 border-b">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">{title}</h3>
-            <button
-              onClick={onClose}
-              className="rounded-md p-1 hover:bg-gray-100"
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
+      <div className="w-[min(92vw,520px)] rounded-2xl bg-white shadow-lg">
+        <div className="p-4 border-b flex items-center justify-between">
+          <h3 id="modal-title" className="text-lg font-semibold">{title}</h3>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 hover:bg-gray-100"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
         <div className="p-4">{children}</div>
       </div>
-    </dialog>
+    </div>
   );
 }
 
