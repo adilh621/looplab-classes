@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getApiBase } from "@/lib/api";
 import type { Me } from "@/lib/auth";
+import { InlineWidget } from "react-calendly";
+
 
 const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
@@ -341,6 +343,10 @@ export default function DashboardPage() {
           </div>
         </form>
       </Modal>
+      <InlineWidget
+        url="https://calendly.com/adilh621/code-coaching"
+        styles={{ height: "700px" }}
+      />
     </main>
   );
 }
