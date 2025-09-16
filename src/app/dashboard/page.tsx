@@ -10,6 +10,29 @@ import { InlineWidget } from "react-calendly";
 
 const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
+function formatRange(startIso?: string | null, endIso?: string | null) {
+  if (!startIso) return null;
+  const start = new Date(startIso);
+  const end = endIso ? new Date(endIso) : null;
+
+  const datePart = new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(start);
+
+  const timeFmt = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  const startPart = timeFmt.format(start);
+  const endPart = end ? timeFmt.format(end) : null;
+
+  return endPart ? `${datePart}, ${startPart}–${endPart}` : `${datePart}, ${startPart}`;
+}
+
+
 function EditIconButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
@@ -75,6 +98,44 @@ export default function DashboardPage() {
   // local form state
   const [formStudent, setFormStudent] = useState({ student_name: "", student_age: "", service: "" });
   const [formDays, setFormDays] = useState<string[]>([]);
+
+  type UpcomingRes = {
+  upcoming: null | {
+    start_utc: string | null;
+    end_utc: string | null;
+    location_type: string | null;
+    join_url: string | null;
+    reschedule_url: string | null;
+    cancel_url: string | null;
+  };
+};
+
+  const [upcoming, setUpcoming] = useState<UpcomingRes["upcoming"] | null>(null);
+  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
+
+  // fetch after /session/me succeeds
+  useEffect(() => {
+    let mounted = true;
+    if (!me?.authenticated) return;
+    (async () => {
+      try {
+        const r = await fetch(`${backend}/sessions/upcoming`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data: UpcomingRes = await r.json();
+        if (!mounted) return;
+        setUpcoming(data.upcoming);
+      } catch (e) {
+        if (!mounted) return;
+        setUpcoming(null);
+      } finally {
+        if (mounted) setLoadingUpcoming(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [backend, me?.authenticated]);
+
 
   // load session
   useEffect(() => {
@@ -239,6 +300,64 @@ export default function DashboardPage() {
           <Link href="/" className="px-4 py-2 rounded-lg bg-gray-100">← Back home</Link>
           <Link href="/login" className="px-4 py-2 rounded-lg bg-black text-white">Switch account</Link>
         </div>
+
+        {/* Upcoming session */}
+      <section className="border rounded-xl overflow-hidden">
+        <div className="px-4 py-3 flex items-center justify-between bg-white">
+          <h2 className="font-medium">Upcoming session</h2>
+        </div>
+        <div className="p-4">
+          {loadingUpcoming ? (
+            <p className="text-sm text-gray-500">Loading…</p>
+          ) : !upcoming ? (
+            <p className="text-sm text-gray-500">No upcoming session yet—book below.</p>
+          ) : (
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="space-y-0.5">
+                <p className="font-medium">
+                  {formatRange(upcoming.start_utc, upcoming.end_utc)}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {upcoming.location_type ? upcoming.location_type.replace("_", " ") : "Online"}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {upcoming.join_url && (
+                  <a
+                    href={upcoming.join_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 rounded-lg bg-black text-white text-sm"
+                  >
+                    Join
+                  </a>
+                )}
+                {upcoming.reschedule_url && (
+                  <a
+                    href={upcoming.reschedule_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
+                  >
+                    Reschedule
+                  </a>
+                )}
+                {upcoming.cancel_url && (
+                  <a
+                    href={upcoming.cancel_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
+                  >
+                    Cancel
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
 
         {/* Calendly section UNDER everything */}
         <section className="mt-6 rounded-xl border overflow-hidden">
