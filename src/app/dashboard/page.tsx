@@ -32,7 +32,6 @@ function formatRange(startIso?: string | null, endIso?: string | null) {
   return endPart ? `${datePart}, ${startPart}–${endPart}` : `${datePart}, ${startPart}`;
 }
 
-
 function EditIconButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
@@ -85,6 +84,24 @@ function Modal({
   );
 }
 
+/** ===== Sessions API types ===== */
+type Booking = {
+  start_utc: string | null;
+  end_utc: string | null;
+  location_type: string | null;
+  join_url: string | null;
+  reschedule_url: string | null;
+  cancel_url: string | null;
+  calendly_event_uuid?: string | null;
+  calendly_invitee_uuid?: string | null;
+  status?: string | null;
+};
+
+type SessionsRes = {
+  upcoming: Booking[];
+  past: Booking[];
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const backend = getApiBase();
@@ -99,45 +116,11 @@ export default function DashboardPage() {
   const [formStudent, setFormStudent] = useState({ student_name: "", student_age: "", service: "" });
   const [formDays, setFormDays] = useState<string[]>([]);
 
-  type UpcomingRes = {
-  upcoming: null | {
-    start_utc: string | null;
-    end_utc: string | null;
-    location_type: string | null;
-    join_url: string | null;
-    reschedule_url: string | null;
-    cancel_url: string | null;
-  };
-};
+  // sessions state
+  const [sessions, setSessions] = useState<SessionsRes | null>(null);
+  const [loadingSessions, setLoadingSessions] = useState(true);
 
-  const [upcoming, setUpcoming] = useState<UpcomingRes["upcoming"] | null>(null);
-  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
-
-  // fetch after /session/me succeeds
-  useEffect(() => {
-    let mounted = true;
-    if (!me?.authenticated) return;
-    (async () => {
-      try {
-        const r = await fetch(`${backend}/sessions/upcoming`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const data: UpcomingRes = await r.json();
-        if (!mounted) return;
-        setUpcoming(data.upcoming);
-      } catch (e) {
-        if (!mounted) return;
-        setUpcoming(null);
-      } finally {
-        if (mounted) setLoadingUpcoming(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [backend, me?.authenticated]);
-
-
-  // load session
+  // load session/me
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -158,6 +141,31 @@ export default function DashboardPage() {
     })();
     return () => { mounted = false; };
   }, [backend, router]);
+
+  // fetch sessions once authenticated
+  useEffect(() => {
+    let mounted = true;
+    if (!me?.authenticated) return;
+
+    (async () => {
+      try {
+        const r = await fetch(`${backend}/sessions?limit_past=10&limit_upcoming=5`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const data: SessionsRes = await r.json();
+        if (!mounted) return;
+        setSessions(data);
+      } catch {
+        if (!mounted) return;
+        setSessions({ upcoming: [], past: [] });
+      } finally {
+        if (mounted) setLoadingSessions(false);
+      }
+    })();
+
+    return () => { mounted = false; };
+  }, [backend, me?.authenticated]);
 
   // helpers
   const parentName = me?.name ?? me?.intake?.parent_name ?? "there";
@@ -215,6 +223,8 @@ export default function DashboardPage() {
       </main>
     );
   }
+
+  const nextUp = sessions?.upcoming?.[0] ?? null;
 
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
@@ -302,70 +312,96 @@ export default function DashboardPage() {
         </div>
 
         {/* Upcoming session */}
-      <section className="border rounded-xl overflow-hidden">
-        <div className="px-4 py-3 flex items-center justify-between bg-white">
-          <h2 className="font-medium">Upcoming session</h2>
-        </div>
-        <div className="p-4">
-          {loadingUpcoming ? (
-            <p className="text-sm text-gray-500">Loading…</p>
-          ) : !upcoming ? (
-            <p className="text-sm text-gray-500">No upcoming session yet—book below.</p>
-          ) : (
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div className="space-y-0.5">
-                <p className="font-medium">
-                  {formatRange(upcoming.start_utc, upcoming.end_utc)}
-                </p>
-                <p className="text-sm text-gray-600">
-                  {upcoming.location_type ? upcoming.location_type.replace("_", " ") : "Online"}
-                </p>
+        <section className="border rounded-xl overflow-hidden">
+          <div className="px-4 py-3 flex items-center justify-between bg-white">
+            <h2 className="font-medium">Upcoming session</h2>
+          </div>
+          <div className="p-4">
+            {loadingSessions ? (
+              <p className="text-sm text-gray-500">Loading…</p>
+            ) : !nextUp ? (
+              <p className="text-sm text-gray-500">No upcoming session yet—book below.</p>
+            ) : (
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div className="space-y-0.5">
+                  <p className="font-medium">
+                    {formatRange(nextUp.start_utc, nextUp.end_utc)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {nextUp.location_type ? nextUp.location_type.replace("_", " ") : "Online"}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {nextUp.join_url && (
+                    <a
+                      href={nextUp.join_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 rounded-lg bg-black text-white text-sm"
+                    >
+                      Join
+                    </a>
+                  )}
+                  {nextUp.reschedule_url && (
+                    <a
+                      href={nextUp.reschedule_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
+                    >
+                      Reschedule
+                    </a>
+                  )}
+                  {nextUp.cancel_url && (
+                    <a
+                      href={nextUp.cancel_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
+                    >
+                      Cancel
+                    </a>
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {upcoming.join_url && (
-                  <a
-                    href={upcoming.join_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-2 rounded-lg bg-black text-white text-sm"
-                  >
-                    Join
-                  </a>
-                )}
-                {upcoming.reschedule_url && (
-                  <a
-                    href={upcoming.reschedule_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
-                  >
-                    Reschedule
-                  </a>
-                )}
-                {upcoming.cancel_url && (
-                  <a
-                    href={upcoming.cancel_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
-                  >
-                    Cancel
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
+            )}
+          </div>
+        </section>
 
+        {/* Past sessions */}
+        <section className="border rounded-xl overflow-hidden">
+          <div className="px-4 py-3 flex items-center justify-between bg-white">
+            <h2 className="font-medium">Past sessions</h2>
+          </div>
+          <div className="p-4">
+            {loadingSessions ? (
+              <p className="text-sm text-gray-500">Loading…</p>
+            ) : !sessions || sessions.past.length === 0 ? (
+              <p className="text-sm text-gray-500">No past sessions yet.</p>
+            ) : (
+              <ul className="divide-y">
+                {sessions.past.map((s, i) => (
+                  <li key={`${s.calendly_invitee_uuid ?? i}`} className="py-3 flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{formatRange(s.start_utc, s.end_utc)}</p>
+                      <p className="text-sm text-gray-600">
+                        {s.location_type ? s.location_type.replace("_", " ") : "Online"}
+                      </p>
+                    </div>
+                    {/* no actions for past items */}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
 
-        {/* Calendly section UNDER everything */}
+        {/* Calendly booking */}
         <section className="mt-6 rounded-xl border overflow-hidden">
           <div className="px-4 py-3 flex items-center justify-between bg-white">
             <h2 className="font-medium">Book a session</h2>
             <span className="text-xs text-gray-500">Powered by Calendly</span>
           </div>
-          {/* Let the widget fill the container */}
           <div className="h-[720px]">
             <InlineWidget
               url="https://calendly.com/adilh621/code-coaching"
