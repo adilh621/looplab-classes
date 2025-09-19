@@ -128,7 +128,6 @@ export default function DashboardPage() {
         const res = await fetch(`${backend}/session/me`, { credentials: "include", cache: "no-store" });
         const data: Me = await res.json();
         if (!mounted) return;
-        console.log("[looplab] /session/me", data);
         setMe(data);
         setLoading(false);
         if (!data.authenticated) router.replace("/login");
@@ -224,12 +223,17 @@ export default function DashboardPage() {
     );
   }
 
-  const nextUp = sessions?.upcoming?.[0] ?? null;
+  /** Build a single list: upcoming first, then past */
+  const combinedSessions: Array<Booking & { kind: "upcoming" | "past" }> = [
+    ...(sessions?.upcoming ?? []).map(s => ({ ...s, kind: "upcoming" as const })),
+    ...(sessions?.past ?? []).map(s => ({ ...s, kind: "past" as const })),
+  ];
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-2xl border rounded-2xl p-6 shadow-sm space-y-6">
-        <div className="space-y-1 text-center">
+    <main className="min-h-screen p-6 flex flex-col items-center gap-6">
+      {/* ===== Container 1: Welcome + Info + Preferred Days ===== */}
+      <div className="w-full max-w-5xl border rounded-2xl p-6 shadow-sm bg-white">
+        <div className="space-y-1 text-center mb-6">
           <h1 className="text-2xl font-semibold">Welcome {parentName}! 👋</h1>
           <p className="text-gray-600">Let&apos;s track {studentName}&apos;s progress{service ? ` in ${service}` : ""}.</p>
         </div>
@@ -283,7 +287,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="border rounded-xl p-4">
+        <section className="mt-4 border rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-medium">Preferred Days</h2>
             <EditIconButton onClick={openDaysEditor} label="Edit preferred days" />
@@ -300,106 +304,113 @@ export default function DashboardPage() {
         </section>
 
         {process.env.NODE_ENV !== "production" && (
-          <details className="border rounded-xl p-4">
+          <details className="mt-4 border rounded-xl p-4">
             <summary className="cursor-pointer font-medium">Debug: Intake payload</summary>
             <pre className="mt-2 text-xs overflow-auto">{JSON.stringify(me.intake, null, 2)}</pre>
           </details>
         )}
 
-        <div className="flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-between">
           <Link href="/" className="px-4 py-2 rounded-lg bg-gray-100">← Back home</Link>
           <Link href="/login" className="px-4 py-2 rounded-lg bg-black text-white">Switch account</Link>
         </div>
+      </div>
 
-        {/* Upcoming session */}
-        <section className="border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 flex items-center justify-between bg-white">
-            <h2 className="font-medium">Upcoming session</h2>
+      {/* ===== Container 2: Sessions (upcoming + previous together) + Calendly ===== */}
+      <div className="w-full max-w-5xl border rounded-2xl p-6 shadow-sm bg-white">
+        <section className="overflow-hidden">
+          <div className="px-1 pb-3 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Sessions</h2>
+            <span className="text-xs text-gray-500">
+              Upcoming in white • Previous in red
+            </span>
           </div>
-          <div className="p-4">
+
+          <div className="space-y-3">
             {loadingSessions ? (
               <p className="text-sm text-gray-500">Loading…</p>
-            ) : !nextUp ? (
-              <p className="text-sm text-gray-500">No upcoming session yet—book below.</p>
+            ) : combinedSessions.length === 0 ? (
+              <p className="text-sm text-gray-500">No sessions yet—book below.</p>
             ) : (
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div className="space-y-0.5">
-                  <p className="font-medium">
-                    {formatRange(nextUp.start_utc, nextUp.end_utc)}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {nextUp.location_type ? nextUp.location_type.replace("_", " ") : "Online"}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {nextUp.join_url && (
-                    <a
-                      href={nextUp.join_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-2 rounded-lg bg-black text-white text-sm"
-                    >
-                      Join
-                    </a>
-                  )}
-                  {nextUp.reschedule_url && (
-                    <a
-                      href={nextUp.reschedule_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
-                    >
-                      Reschedule
-                    </a>
-                  )}
-                  {nextUp.cancel_url && (
-                    <a
-                      href={nextUp.cancel_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
-                    >
-                      Cancel
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+              combinedSessions.map((s, i) => {
+                const isPast = s.kind === "past";
+                return (
+                  <div
+                    key={`${s.calendly_invitee_uuid ?? i}`}
+                    className={[
+                      "rounded-xl border p-4",
+                      isPast
+                        ? "bg-rose-50 border-rose-200"
+                        : "bg-white border-gray-200",
+                    ].join(" ")}
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{formatRange(s.start_utc, s.end_utc)}</p>
+                          <span
+                            className={[
+                              "text-xs px-2 py-0.5 rounded-full",
+                              isPast
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-gray-100 text-gray-700",
+                            ].join(" ")}
+                          >
+                            {isPast ? "Previous" : "Upcoming"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {s.location_type ? s.location_type.replace("_", " ") : "Online"}
+                        </p>
+                      </div>
 
-        {/* Past sessions */}
-        <section className="border rounded-xl overflow-hidden">
-          <div className="px-4 py-3 flex items-center justify-between bg-white">
-            <h2 className="font-medium">Past sessions</h2>
-          </div>
-          <div className="p-4">
-            {loadingSessions ? (
-              <p className="text-sm text-gray-500">Loading…</p>
-            ) : !sessions || sessions.past.length === 0 ? (
-              <p className="text-sm text-gray-500">No past sessions yet.</p>
-            ) : (
-              <ul className="divide-y">
-                {sessions.past.map((s, i) => (
-                  <li key={`${s.calendly_invitee_uuid ?? i}`} className="py-3 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{formatRange(s.start_utc, s.end_utc)}</p>
-                      <p className="text-sm text-gray-600">
-                        {s.location_type ? s.location_type.replace("_", " ") : "Online"}
-                      </p>
+                      {/* Actions only for upcoming */}
+                      {!isPast && (
+                        <div className="flex flex-wrap gap-2">
+                          {s.join_url && (
+                            <a
+                              href={s.join_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-2 rounded-lg bg-black text-white text-sm"
+                            >
+                              Join
+                            </a>
+                          )}
+                          {s.reschedule_url && (
+                            <a
+                              href={s.reschedule_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
+                            >
+                              Reschedule
+                            </a>
+                          )}
+                          {s.cancel_url && (
+                            <a
+                              href={s.cancel_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
+                            >
+                              Cancel
+                            </a>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {/* no actions for past items */}
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                );
+              })
             )}
           </div>
         </section>
 
-        {/* Calendly booking */}
+        {/* Calendly booking (kept with sessions) */}
         <section className="mt-6 rounded-xl border overflow-hidden">
           <div className="px-4 py-3 flex items-center justify-between bg-white">
-            <h2 className="font-medium">Book a session</h2>
+            <h3 className="font-medium">Book a session</h3>
             <span className="text-xs text-gray-500">Powered by Calendly</span>
           </div>
           <div className="h-[720px]">
