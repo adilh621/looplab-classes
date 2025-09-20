@@ -1,6 +1,7 @@
+// app/coach/notes/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { getApiBase } from "@/lib/api";
 import type { Me } from "@/lib/auth";
@@ -56,7 +57,23 @@ function formatRange(startIso?: string | null, endIso?: string | null) {
   return endPart ? `${datePart}, ${startPart}–${endPart}` : `${datePart}, ${startPart}`;
 }
 
+/** Page wrapper: provides Suspense boundary for useSearchParams usage */
 export default function CoachNotesPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen flex items-center justify-center p-6">
+          <div className="w-full max-w-lg border rounded-2xl p-6 shadow-sm text-center">Loading…</div>
+        </main>
+      }
+    >
+      <NotesClient />
+    </Suspense>
+  );
+}
+
+/** Inner client component that uses useSearchParams */
+function NotesClient() {
   const backend = getApiBase();
   const router = useRouter();
   const params = useSearchParams();
@@ -137,7 +154,6 @@ export default function CoachNotesPage() {
   useEffect(() => {
     if (typeof initialBookingFromQuery === "number" && !Number.isNaN(initialBookingFromQuery)) {
       setBookingId(initialBookingFromQuery);
-      // fire and forget
       void loadNotesForBooking(initialBookingFromQuery);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
