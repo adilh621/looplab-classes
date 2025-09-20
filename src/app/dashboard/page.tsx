@@ -1,4 +1,3 @@
-// app/dashboard/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -244,12 +243,6 @@ export default function DashboardPage() {
     );
   }
 
-  /** Build a single list: upcoming first, then past */
-  const combinedSessions: Array<Booking & { kind: "upcoming" | "past" }> = [
-    ...(sessions?.upcoming ?? []).map(s => ({ ...s, kind: "upcoming" as const })),
-    ...(sessions?.past ?? []).map(s => ({ ...s, kind: "past" as const })),
-  ];
-
   return (
     <main className="min-h-screen p-6 flex flex-col items-center gap-6">
       {/* ===== Container 1: Welcome + Info + Preferred Days ===== */}
@@ -389,7 +382,7 @@ export default function DashboardPage() {
 
                       {/* Actions for upcoming */}
                       <div className="flex flex-wrap gap-2">
-                        {!isPast && s.join_url && (
+                        {s.kind !== "past" && s.join_url && (
                           <a
                             href={s.join_url}
                             target="_blank"
@@ -399,7 +392,7 @@ export default function DashboardPage() {
                             Join
                           </a>
                         )}
-                        {!isPast && s.reschedule_url && (
+                        {s.kind !== "past" && s.reschedule_url && (
                           <a
                             href={s.reschedule_url}
                             target="_blank"
@@ -409,7 +402,7 @@ export default function DashboardPage() {
                             Reschedule
                           </a>
                         )}
-                        {!isPast && s.cancel_url && (
+                        {s.kind !== "past" && s.cancel_url && (
                           <a
                             href={s.cancel_url}
                             target="_blank"

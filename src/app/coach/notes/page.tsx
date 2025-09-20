@@ -1,4 +1,3 @@
-// app/coach/notes/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -31,6 +30,13 @@ type BookingMeta = {
   end_utc: string | null;
 };
 
+// helper: safely read intake.email without `any`
+type WithEmail = { email?: string };
+function getIntakeEmail(me: Me): string | undefined {
+  const intake = (me.intake ?? undefined) as WithEmail | undefined;
+  return intake?.email;
+}
+
 function getErrorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
   if (typeof e === "string") return e;
@@ -55,7 +61,6 @@ export default function CoachNotesPage() {
   const router = useRouter();
   const params = useSearchParams();
 
-  const [me, setMe] = useState<Me | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
 
   // guard + bootstrap bookingId from query
@@ -88,15 +93,13 @@ export default function CoachNotesPage() {
         const r = await fetch(`${backend}/session/me`, { credentials: "include", cache: "no-store" });
         const data: Me = await r.json();
         if (!mounted) return;
-        setMe(data);
         setLoadingMe(false);
         if (!data.authenticated) {
           router.replace("/login");
           return;
         }
-        const userEmail = (data.email ?? (data as any).intake?.email) as string | undefined;
-        if (userEmail?.toLowerCase() !== COACH_EMAIL.toLowerCase()) {
-          // Not the coach, kick back to dashboard
+        const userEmail = data.email ?? getIntakeEmail(data);
+        if ((userEmail ?? "").toLowerCase() !== COACH_EMAIL.toLowerCase()) {
           router.replace("/dashboard");
         }
       } catch {
@@ -122,15 +125,7 @@ export default function CoachNotesPage() {
       if (!r.ok) throw new Error(`Failed to load notes (${r.status})`);
       const data: SessionNotesPage = await r.json();
       setNotes(data.items || []);
-
-      // lightweight booking meta: grab from first note if any (created route doesn’t return booking,
-      // so we’ll also ping /sessions/upcoming as a weak fallback if needed)
-      if (data.items?.length) {
-        // We don’t have start/end in note payload; fall back to a simple meta: only id known here.
-        setBookingMeta({ id, start_utc: null, end_utc: null });
-      } else {
-        setBookingMeta({ id, start_utc: null, end_utc: null });
-      }
+      setBookingMeta({ id, start_utc: null, end_utc: null });
     } catch (e: unknown) {
       setNotesError(getErrorMessage(e));
     } finally {
@@ -142,7 +137,8 @@ export default function CoachNotesPage() {
   useEffect(() => {
     if (typeof initialBookingFromQuery === "number" && !Number.isNaN(initialBookingFromQuery)) {
       setBookingId(initialBookingFromQuery);
-      loadNotesForBooking(initialBookingFromQuery);
+      // fire and forget
+      void loadNotesForBooking(initialBookingFromQuery);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -279,7 +275,7 @@ export default function CoachNotesPage() {
                 className="space-y-3"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  createNote().catch((err: unknown) => alert(getErrorMessage(err)));
+                  void createNote();
                 }}
               >
                 <label className="block text-sm">
