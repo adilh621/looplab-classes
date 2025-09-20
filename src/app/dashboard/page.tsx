@@ -39,6 +39,7 @@ function EditIconButton({ onClick, label }: { onClick: () => void; label: string
       aria-label={label}
       className="ml-2 inline-flex items-center justify-center rounded-md p-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100"
       title={label}
+      type="button"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
         <path d="M12 20h9" strokeWidth="2" />
@@ -67,13 +68,14 @@ function Modal({
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className="w-[min(92vw,520px)] rounded-2xl bg-white shadow-lg">
+      <div className="w-[min(92vw,720px)] rounded-2xl bg-white shadow-lg">
         <div className="p-4 border-b flex items-center justify-between">
           <h3 id="modal-title" className="text-lg font-semibold">{title}</h3>
           <button
             onClick={onClose}
             className="rounded-md p-1 hover:bg-gray-100"
             aria-label="Close"
+            type="button"
           >
             ✕
           </button>
@@ -84,8 +86,9 @@ function Modal({
   );
 }
 
-/** ===== Sessions API types ===== */
+/** ===== API types ===== */
 type Booking = {
+  id: number;                     // <--- requires backend change
   start_utc: string | null;
   end_utc: string | null;
   location_type: string | null;
@@ -102,21 +105,51 @@ type SessionsRes = {
   past: Booking[];
 };
 
+type SessionNote = {
+  id: number;
+  session_booking_id: number;
+  coach_name?: string | null;
+  status: "draft" | "published";
+  visibility: "private" | "parent" | "parent_and_student";
+  title?: string | null;
+  content_md: string;
+  created_at: string;
+  updated_at: string;
+  emailed_to?: string[] | null;
+  email_sent_at?: string | null;
+};
+
+type SessionNotesPage = { items: SessionNote[]; total: number };
+
 export default function DashboardPage() {
   const router = useRouter();
   const backend = getApiBase();
   const [me, setMe] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // modal state
+  // modals
   const [openStudent, setOpenStudent] = useState(false);
   const [openDays, setOpenDays] = useState(false);
 
-  // local form state
+  // NEW: notes modal state
+  const [openNotes, setOpenNotes] = useState(false);
+  const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
+  const [notes, setNotes] = useState<SessionNote[]>([]);
+
+  // NEW: create note form state
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteContent, setNoteContent] = useState("");
+  const [noteVisibility, setNoteVisibility] = useState<"private"|"parent"|"parent_and_student">("parent");
+  const [noteStatus, setNoteStatus] = useState<"draft"|"published">("draft");
+  const [noteEmailOnPublish, setNoteEmailOnPublish] = useState(true);
+
+  // forms
   const [formStudent, setFormStudent] = useState({ student_name: "", student_age: "", service: "" });
   const [formDays, setFormDays] = useState<string[]>([]);
 
-  // sessions state
+  // sessions
   const [sessions, setSessions] = useState<SessionsRes | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
 
@@ -201,6 +234,34 @@ export default function DashboardPage() {
     setOpenDays(true);
   };
 
+  // NEW: open notes modal for a booking
+  const openNotesFor = async (booking: Booking) => {
+    setActiveBooking(booking);
+    setNotes([]);
+    setNotesError(null);
+    setNoteTitle("");
+    setNoteContent("");
+    setNoteVisibility("parent");
+    setNoteStatus("draft");
+    setNoteEmailOnPublish(true);
+
+    setOpenNotes(true);
+    setNotesLoading(true);
+    try {
+      const r = await fetch(`${backend}/session-notes?session_booking_id=${booking.id}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!r.ok) throw new Error(`Failed to load notes (${r.status})`);
+      const data: SessionNotesPage = await r.json();
+      setNotes(data.items || []);
+    } catch (e: any) {
+      setNotesError(e?.message || "Failed to load notes");
+    } finally {
+      setNotesLoading(false);
+    }
+  };
+
   // PATCH /me helper
   async function updateMe(payload: Record<string, unknown>) {
     const res = await fetch(`${backend}/me`, {
@@ -213,6 +274,46 @@ export default function DashboardPage() {
     const meRes = await fetch(`${backend}/session/me`, { credentials: "include", cache: "no-store" });
     const meData: Me = await meRes.json();
     setMe(meData);
+  }
+
+  // NEW: create note helper
+  async function createNote() {
+    if (!activeBooking) return;
+    if (!noteContent.trim()) {
+      alert("Write something in the note first.");
+      return;
+    }
+    const payload = {
+      session_booking_id: activeBooking.id,
+      title: noteTitle || null,
+      content_md: noteContent,
+      visibility: noteVisibility,
+      status: noteStatus,
+      send_email: noteStatus === "published" ? noteEmailOnPublish : false,
+    };
+    const res = await fetch(`${backend}/session-notes`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Create note failed (${res.status}) ${text}`);
+    }
+    // refresh list
+    const r = await fetch(`${backend}/session-notes?session_booking_id=${activeBooking.id}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const data: SessionNotesPage = await r.json();
+    setNotes(data.items || []);
+    // reset editor, keep modal open
+    setNoteTitle("");
+    setNoteContent("");
+    setNoteVisibility("parent");
+    setNoteStatus("draft");
+    setNoteEmailOnPublish(true);
   }
 
   if (loading || !me) {
@@ -248,7 +349,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Email</dt>
-                <dd>{me.email ?? me.intake?.email ?? "—"}</dd>
+                <dd>{me.email ?? (me as any).intake?.email ?? "—"}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Timezone</dt>
@@ -281,7 +382,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Status</dt>
-                <dd>{me.intake?.status ?? "—"}</dd>
+                <dd>{(me.intake as any)?.status ?? "—"}</dd>
               </div>
             </dl>
           </div>
@@ -336,7 +437,7 @@ export default function DashboardPage() {
                 const isPast = s.kind === "past";
                 return (
                   <div
-                    key={`${s.calendly_invitee_uuid ?? i}`}
+                    key={`${s.id}-${s.calendly_invitee_uuid ?? i}`}
                     className={[
                       "rounded-xl border p-4",
                       isPast
@@ -364,41 +465,47 @@ export default function DashboardPage() {
                         </p>
                       </div>
 
-                      {/* Actions only for upcoming */}
-                      {!isPast && (
-                        <div className="flex flex-wrap gap-2">
-                          {s.join_url && (
-                            <a
-                              href={s.join_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3 py-2 rounded-lg bg-black text-white text-sm"
-                            >
-                              Join
-                            </a>
-                          )}
-                          {s.reschedule_url && (
-                            <a
-                              href={s.reschedule_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
-                            >
-                              Reschedule
-                            </a>
-                          )}
-                          {s.cancel_url && (
-                            <a
-                              href={s.cancel_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
-                            >
-                              Cancel
-                            </a>
-                          )}
-                        </div>
-                      )}
+                      {/* Actions */}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
+                          onClick={() => openNotesFor(s)}
+                          title="View or add notes for this session"
+                        >
+                          Notes
+                        </button>
+                        {!isPast && s.join_url && (
+                          <a
+                            href={s.join_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 rounded-lg bg-black text-white text-sm"
+                          >
+                            Join
+                          </a>
+                        )}
+                        {!isPast && s.reschedule_url && (
+                          <a
+                            href={s.reschedule_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
+                          >
+                            Reschedule
+                          </a>
+                        )}
+                        {!isPast && s.cancel_url && (
+                          <a
+                            href={s.cancel_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
+                          >
+                            Cancel
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -423,7 +530,7 @@ export default function DashboardPage() {
               }}
               prefill={{
                 name: me.intake?.parent_name ?? undefined,
-                email: (me.email ?? me.intake?.email) ?? undefined,
+                email: (me.email ?? (me as any).intake?.email) ?? undefined,
               }}
               utm={{
                 utmMedium: "looplab-dashboard",
@@ -526,6 +633,147 @@ export default function DashboardPage() {
             <button type="submit" className="px-3 py-2 rounded-lg bg-black text-white">Save</button>
           </div>
         </form>
+      </Modal>
+
+      {/* ===== Notes modal ===== */}
+      <Modal
+        open={openNotes}
+        onClose={() => setOpenNotes(false)}
+        title={activeBooking ? `Session Notes · ${formatRange(activeBooking.start_utc, activeBooking.end_utc)}` : "Session Notes"}
+      >
+        {!activeBooking ? (
+          <p className="text-sm text-gray-500">No session selected.</p>
+        ) : (
+          <div className="grid gap-6">
+            {/* Existing notes */}
+            <section>
+              <h4 className="font-medium mb-2">Existing notes</h4>
+              {notesLoading ? (
+                <p className="text-sm text-gray-500">Loading…</p>
+              ) : notesError ? (
+                <p className="text-sm text-red-600">{notesError}</p>
+              ) : notes.length === 0 ? (
+                <p className="text-sm text-gray-500">No notes yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {notes.map(n => (
+                    <li key={n.id} className="border rounded-lg p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{n.title || "(Untitled note)"}</p>
+                          <p className="text-xs text-gray-500">
+                            {new Date(n.created_at).toLocaleString()} • {n.coach_name ?? "Coach"} • {n.visibility} • {n.status}
+                          </p>
+                        </div>
+                        {n.status === "published" ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Published</span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">Draft</span>
+                        )}
+                      </div>
+                      <pre className="mt-2 text-sm whitespace-pre-wrap break-words text-gray-700">
+                        {n.content_md.length > 400 ? `${n.content_md.slice(0, 400)}…` : n.content_md}
+                      </pre>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {/* Composer */}
+            <section>
+              <h4 className="font-medium mb-2">New note</h4>
+              <form
+                className="space-y-3"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    await createNote();
+                    alert(noteStatus === "published" && noteEmailOnPublish
+                      ? "Note published and email sent (if address on file)."
+                      : noteStatus === "published"
+                        ? "Note published."
+                        : "Draft saved.");
+                  } catch (err: any) {
+                    alert(err?.message || "Failed to create note");
+                  }
+                }}
+              >
+                <label className="block text-sm">
+                  <span className="text-gray-600">Title (optional)</span>
+                  <input
+                    className="mt-1 w-full rounded-lg border p-2"
+                    value={noteTitle}
+                    onChange={(e) => setNoteTitle(e.target.value)}
+                  />
+                </label>
+
+                <label className="block text-sm">
+                  <span className="text-gray-600">Content (Markdown)</span>
+                  <textarea
+                    className="mt-1 w-full rounded-lg border p-2 min-h-[140px]"
+                    value={noteContent}
+                    onChange={(e) => setNoteContent(e.target.value)}
+                    placeholder={`For today's session... \n\nNext steps...\n\nHomework...`}
+                  />
+                </label>
+
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <label className="block text-sm">
+                    <span className="text-gray-600">Visibility</span>
+                    <select
+                      className="mt-1 w-full rounded-lg border p-2"
+                      value={noteVisibility}
+                      onChange={(e) => setNoteVisibility(e.target.value as any)}
+                    >
+                      <option value="private">Private (staff only)</option>
+                      <option value="parent">Parent</option>
+                      <option value="parent_and_student">Parent & Student</option>
+                    </select>
+                  </label>
+
+                  <label className="block text-sm">
+                    <span className="text-gray-600">Status</span>
+                    <select
+                      className="mt-1 w-full rounded-lg border p-2"
+                      value={noteStatus}
+                      onChange={(e) => setNoteStatus(e.target.value as any)}
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="published">Published</option>
+                    </select>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-sm mt-6 sm:mt-[30px]">
+                    <input
+                      type="checkbox"
+                      checked={noteEmailOnPublish}
+                      onChange={(e) => setNoteEmailOnPublish(e.target.checked)}
+                      disabled={noteStatus !== "published"}
+                    />
+                    Email parent on publish
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOpenNotes(false)}
+                    className="px-3 py-2 rounded-lg bg-gray-100"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-3 py-2 rounded-lg bg-black text-white"
+                  >
+                    Save note
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        )}
       </Modal>
     </main>
   );
