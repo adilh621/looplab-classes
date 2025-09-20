@@ -7,6 +7,24 @@ import Link from "next/link";
 import { getApiBase } from "@/lib/api";
 import type { Me } from "@/lib/auth";
 import { InlineWidget } from "react-calendly";
+// --- local helpers to avoid `any` casts ---
+type WithEmail = { email?: string };
+type WithStatus = { status?: string };
+
+function getIntakeEmail(me: Me | null): string | undefined {
+  const intake = me?.intake as unknown as WithEmail | undefined;
+  return intake?.email;
+}
+function getIntakeStatus(me: Me | null): string | undefined {
+  const intake = me?.intake as unknown as WithStatus | undefined;
+  return intake?.status;
+}
+function getErrorMessage(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (typeof e === "string") return e;
+  try { return JSON.stringify(e); } catch { return "Unknown error"; }
+}
+
 
 const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
