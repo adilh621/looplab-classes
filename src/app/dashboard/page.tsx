@@ -106,7 +106,7 @@ function Modal({
 
 /** ===== API types ===== */
 type Booking = {
-  id: number;                     // requires backend change to include id in /sessions
+  id: number; // ensure backend /sessions includes id
   start_utc: string | null;
   end_utc: string | null;
   location_type: string | null;
@@ -123,22 +123,6 @@ type SessionsRes = {
   past: Booking[];
 };
 
-type SessionNote = {
-  id: number;
-  session_booking_id: number;
-  coach_name?: string | null;
-  status: "draft" | "published";
-  visibility: "private" | "parent" | "parent_and_student";
-  title?: string | null;
-  content_md: string;
-  created_at: string;
-  updated_at: string;
-  emailed_to?: string[] | null;
-  email_sent_at?: string | null;
-};
-
-type SessionNotesPage = { items: SessionNote[]; total: number };
-
 export default function DashboardPage() {
   const router = useRouter();
   const backend = getApiBase();
@@ -148,20 +132,6 @@ export default function DashboardPage() {
   // modals
   const [openStudent, setOpenStudent] = useState(false);
   const [openDays, setOpenDays] = useState(false);
-
-  // NEW: notes modal state
-  const [openNotes, setOpenNotes] = useState(false);
-  const [activeBooking, setActiveBooking] = useState<Booking | null>(null);
-  const [notesLoading, setNotesLoading] = useState(false);
-  const [notesError, setNotesError] = useState<string | null>(null);
-  const [notes, setNotes] = useState<SessionNote[]>([]);
-
-  // NEW: create note form state
-  const [noteTitle, setNoteTitle] = useState("");
-  const [noteContent, setNoteContent] = useState("");
-  const [noteVisibility, setNoteVisibility] = useState<"private"|"parent"|"parent_and_student">("parent");
-  const [noteStatus, setNoteStatus] = useState<"draft"|"published">("draft");
-  const [noteEmailOnPublish, setNoteEmailOnPublish] = useState(true);
 
   // forms
   const [formStudent, setFormStudent] = useState({ student_name: "", student_age: "", service: "" });
@@ -252,34 +222,6 @@ export default function DashboardPage() {
     setOpenDays(true);
   };
 
-  // NEW: open notes modal for a booking
-  const openNotesFor = async (booking: Booking) => {
-    setActiveBooking(booking);
-    setNotes([]);
-    setNotesError(null);
-    setNoteTitle("");
-    setNoteContent("");
-    setNoteVisibility("parent");
-    setNoteStatus("draft");
-    setNoteEmailOnPublish(true);
-
-    setOpenNotes(true);
-    setNotesLoading(true);
-    try {
-      const r = await fetch(`${backend}/session-notes?session_booking_id=${booking.id}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-      if (!r.ok) throw new Error(`Failed to load notes (${r.status})`);
-      const data: SessionNotesPage = await r.json();
-      setNotes(data.items || []);
-    } catch (e: unknown) {
-      setNotesError(getErrorMessage(e));
-    } finally {
-      setNotesLoading(false);
-    }
-  };
-
   // PATCH /me helper
   async function updateMe(payload: Record<string, unknown>) {
     const res = await fetch(`${backend}/me`, {
@@ -292,46 +234,6 @@ export default function DashboardPage() {
     const meRes = await fetch(`${backend}/session/me`, { credentials: "include", cache: "no-store" });
     const meData: Me = await meRes.json();
     setMe(meData);
-  }
-
-  // NEW: create note helper
-  async function createNote() {
-    if (!activeBooking) return;
-    if (!noteContent.trim()) {
-      alert("Write something in the note first.");
-      return;
-    }
-    const payload = {
-      session_booking_id: activeBooking.id,
-      title: noteTitle || null,
-      content_md: noteContent,
-      visibility: noteVisibility,
-      status: noteStatus,
-      send_email: noteStatus === "published" ? noteEmailOnPublish : false,
-    };
-    const res = await fetch(`${backend}/session-notes`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`Create note failed (${res.status}) ${text}`);
-    }
-    // refresh list
-    const r = await fetch(`${backend}/session-notes?session_booking_id=${activeBooking.id}`, {
-      credentials: "include",
-      cache: "no-store",
-    });
-    const data: SessionNotesPage = await r.json();
-    setNotes(data.items || []);
-    // reset editor, keep modal open
-    setNoteTitle("");
-    setNoteContent("");
-    setNoteVisibility("parent");
-    setNoteStatus("draft");
-    setNoteEmailOnPublish(true);
   }
 
   if (loading || !me) {
@@ -448,10 +350,12 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {loadingSessions ? (
               <p className="text-sm text-gray-500">Loading…</p>
-            ) : combinedSessions.length === 0 ? (
+            ) : (sessions?.upcoming.length ?? 0) + (sessions?.past.length ?? 0) === 0 ? (
               <p className="text-sm text-gray-500">No sessions yet—book below.</p>
             ) : (
-              combinedSessions.map((s, i) => {
+              [...(sessions?.upcoming ?? []).map(s => ({ ...s, kind: "upcoming" as const })),
+               ...(sessions?.past ?? []).map(s => ({ ...s, kind: "past" as const }))]
+               .map((s, i) => {
                 const isPast = s.kind === "past";
                 return (
                   <div
@@ -483,16 +387,8 @@ export default function DashboardPage() {
                         </p>
                       </div>
 
-                      {/* Actions */}
+                      {/* Actions for upcoming */}
                       <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
-                          onClick={() => openNotesFor(s)}
-                          title="View or add notes for this session"
-                        >
-                          Notes
-                        </button>
                         {!isPast && s.join_url && (
                           <a
                             href={s.join_url}
@@ -532,7 +428,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Calendly booking (kept with sessions) */}
+        {/* Calendly booking */}
         <section className="mt-6 rounded-xl border overflow-hidden">
           <div className="px-4 py-3 flex items-center justify-between bg-white">
             <h3 className="font-medium">Book a session</h3>
@@ -651,147 +547,6 @@ export default function DashboardPage() {
             <button type="submit" className="px-3 py-2 rounded-lg bg-black text-white">Save</button>
           </div>
         </form>
-      </Modal>
-
-      {/* ===== Notes modal ===== */}
-      <Modal
-        open={openNotes}
-        onClose={() => setOpenNotes(false)}
-        title={activeBooking ? `Session Notes · ${formatRange(activeBooking.start_utc, activeBooking.end_utc)}` : "Session Notes"}
-      >
-        {!activeBooking ? (
-          <p className="text-sm text-gray-500">No session selected.</p>
-        ) : (
-          <div className="grid gap-6">
-            {/* Existing notes */}
-            <section>
-              <h4 className="font-medium mb-2">Existing notes</h4>
-              {notesLoading ? (
-                <p className="text-sm text-gray-500">Loading…</p>
-              ) : notesError ? (
-                <p className="text-sm text-red-600">{notesError}</p>
-              ) : notes.length === 0 ? (
-                <p className="text-sm text-gray-500">No notes yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {notes.map(n => (
-                    <li key={n.id} className="border rounded-lg p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{n.title || "(Untitled note)"}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(n.created_at).toLocaleString()} • {n.coach_name ?? "Coach"} • {n.visibility} • {n.status}
-                          </p>
-                        </div>
-                        {n.status === "published" ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Published</span>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">Draft</span>
-                        )}
-                      </div>
-                      <pre className="mt-2 text-sm whitespace-pre-wrap break-words text-gray-700">
-                        {n.content_md.length > 400 ? `${n.content_md.slice(0, 400)}…` : n.content_md}
-                      </pre>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            {/* Composer */}
-            <section>
-              <h4 className="font-medium mb-2">New note</h4>
-              <form
-                className="space-y-3"
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  try {
-                    await createNote();
-                    alert(noteStatus === "published" && noteEmailOnPublish
-                      ? "Note published and email sent (if address on file)."
-                      : noteStatus === "published"
-                        ? "Note published."
-                        : "Draft saved.");
-                  } catch (err: unknown) {
-                    alert(getErrorMessage(err));
-                  }
-                }}
-              >
-                <label className="block text-sm">
-                  <span className="text-gray-600">Title (optional)</span>
-                  <input
-                    className="mt-1 w-full rounded-lg border p-2"
-                    value={noteTitle}
-                    onChange={(e) => setNoteTitle(e.target.value)}
-                  />
-                </label>
-
-                <label className="block text-sm">
-                  <span className="text-gray-600">Content (Markdown)</span>
-                  <textarea
-                    className="mt-1 w-full rounded-lg border p-2 min-h-[140px]"
-                    value={noteContent}
-                    onChange={(e) => setNoteContent(e.target.value)}
-                    placeholder={`For today's session... \n\nNext steps...\n\nHomework...`}
-                  />
-                </label>
-
-                <div className="grid sm:grid-cols-3 gap-3">
-                  <label className="block text-sm">
-                    <span className="text-gray-600">Visibility</span>
-                    <select
-                      className="mt-1 w-full rounded-lg border p-2"
-                      value={noteVisibility}
-                      onChange={(e) => setNoteVisibility(e.target.value as "private" | "parent" | "parent_and_student")}
-                    >
-                      <option value="private">Private (staff only)</option>
-                      <option value="parent">Parent</option>
-                      <option value="parent_and_student">Parent & Student</option>
-                    </select>
-                  </label>
-
-                  <label className="block text-sm">
-                    <span className="text-gray-600">Status</span>
-                    <select
-                      className="mt-1 w-full rounded-lg border p-2"
-                      value={noteStatus}
-                      onChange={(e) => setNoteStatus(e.target.value as "draft" | "published")}
-                    >
-                      <option value="draft">Draft</option>
-                      <option value="published">Published</option>
-                    </select>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-sm mt-6 sm:mt-[30px]">
-                    <input
-                      type="checkbox"
-                      checked={noteEmailOnPublish}
-                      onChange={(e) => setNoteEmailOnPublish(e.target.checked)}
-                      disabled={noteStatus !== "published"}
-                    />
-                    Email parent on publish
-                  </label>
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setOpenNotes(false)}
-                    className="px-3 py-2 rounded-lg bg-gray-100"
-                  >
-                    Close
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-3 py-2 rounded-lg bg-black text-white"
-                  >
-                    Save note
-                  </button>
-                </div>
-              </form>
-            </section>
-          </div>
-        )}
       </Modal>
     </main>
   );
