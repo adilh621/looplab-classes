@@ -17,8 +17,8 @@ type SessionNote = {
   visibility: "private" | "parent" | "parent_and_student";
   title?: string | null;
   content_md: string;
-  created_at: string;
-  updated_at: string;
+  created_at: string; // ISO string from API
+  updated_at: string; // ISO string from API
   emailed_to?: string[] | null;
   email_sent_at?: string | null;
 };
@@ -207,6 +207,45 @@ function NotesClient() {
     alert("Note saved.");
   }
 
+  // --- NEW: delete a note ---
+  async function deleteNote(noteId: number) {
+    if (!bookingId) return;
+    const ok = confirm("Delete this note? This cannot be undone.");
+    if (!ok) return;
+    const res = await fetch(`${backend}/session-notes/${noteId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      alert(`Delete failed (${res.status}) ${text}`);
+      return;
+    }
+    await loadNotesForBooking(bookingId);
+  }
+
+  // --- NEW: toggle note status Draft ⇄ Published ---
+  async function toggleStatus(note: SessionNote) {
+    if (!bookingId) return;
+    const next: "draft" | "published" = note.status === "published" ? "draft" : "published";
+    let send_email = false;
+    if (next === "published") {
+      send_email = confirm("Publish this note and email the parent now?");
+    }
+    const res = await fetch(`${backend}/session-notes/${note.id}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next, send_email }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      alert(`Update failed (${res.status}) ${text}`);
+      return;
+    }
+    await loadNotesForBooking(bookingId);
+  }
+
   if (loadingMe) {
     return (
       <main className="min-h-screen flex items-center justify-center p-6">
@@ -217,13 +256,15 @@ function NotesClient() {
 
   return (
     <main className="min-h-screen p-6 flex flex-col items-center gap-6 bg-gray-50">
-      <div className="w-full max-w-5xl">
+      <div className="w-full max-w-6xl">
+        {/* Header */}
         <div className="mb-4">
           <h1 className="text-2xl font-semibold">Coach Notes</h1>
           <p className="text-gray-600 text-sm">Visible to Coach Adil only. Use a Session Booking ID to view/add notes.</p>
         </div>
 
-        <form onSubmit={handleLoadClick} className="flex items-end gap-2 bg-white border p-4 rounded-xl">
+        {/* Booking chooser */}
+        <form onSubmit={handleLoadClick} className="flex flex-wrap items-end gap-2 bg-white border p-4 rounded-xl">
           <label className="block text-sm">
             <span className="text-gray-600">Booking ID</span>
             <input
@@ -240,121 +281,157 @@ function NotesClient() {
 
         {typeof bookingId === "number" && (
           <div className="mt-6 grid gap-6">
-            {/* Meta */}
+            {/* Session Meta */}
             <section className="bg-white border rounded-xl p-4">
-              <h2 className="font-medium mb-2">Session</h2>
-              <p className="text-sm text-gray-600">
-                Booking #{bookingId} {bookingMeta?.start_utc ? `• ${formatRange(bookingMeta.start_utc, bookingMeta.end_utc)}` : ""}
-              </p>
-            </section>
-
-            {/* Existing notes */}
-            <section className="bg-white border rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="font-medium">Existing notes</h2>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-medium">Session</h2>
+                  <p className="text-sm text-gray-600">
+                    Booking #{bookingId} {bookingMeta?.start_utc ? `• ${formatRange(bookingMeta.start_utc, bookingMeta.end_utc)}` : ""}
+                  </p>
+                </div>
                 {notesLoading && <span className="text-xs text-gray-500">Loading…</span>}
               </div>
-              {notesError ? (
-                <p className="text-sm text-red-600">{notesError}</p>
-              ) : notes.length === 0 ? (
-                <p className="text-sm text-gray-500">No notes yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {notes.map(n => (
-                    <li key={n.id} className="border rounded-lg p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{n.title || "(Untitled note)"}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(n.created_at).toLocaleString()} • {n.coach_name ?? "Coach"} • {n.visibility} • {n.status}
-                          </p>
-                        </div>
-                        {n.status === "published" ? (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Published</span>
-                        ) : (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">Draft</span>
-                        )}
-                      </div>
-                      <pre className="mt-2 text-sm whitespace-pre-wrap break-words text-gray-700">
-                        {n.content_md.length > 500 ? `${n.content_md.slice(0, 500)}…` : n.content_md}
-                      </pre>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </section>
 
-            {/* Composer */}
-            <section className="bg-white border rounded-xl p-4">
-              <h2 className="font-medium mb-2">New note</h2>
-              <form
-                className="space-y-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void createNote();
-                }}
-              >
-                <label className="block text-sm">
-                  <span className="text-gray-600">Title (optional)</span>
-                  <input
-                    className="mt-1 w-full rounded-lg border p-2"
-                    value={noteTitle}
-                    onChange={(e) => setNoteTitle(e.target.value)}
-                  />
-                </label>
-
-                <label className="block text-sm">
-                  <span className="text-gray-600">Content (Markdown)</span>
-                  <textarea
-                    className="mt-1 w-full rounded-lg border p-2 min-h-[160px]"
-                    value={noteContent}
-                    onChange={(e) => setNoteContent(e.target.value)}
-                    placeholder={`For today's session...\n\nProgress:\n- \n\nWhat we did:\n- \n\nNext steps:\n- `}
-                  />
-                </label>
-
-                <div className="grid sm:grid-cols-3 gap-3">
+            {/* Two-column layout on desktop: Composer (left) • Existing notes (right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Composer */}
+              <section className="bg-white border rounded-xl p-4">
+                <h2 className="font-medium mb-3">New note</h2>
+                <form
+                  className="space-y-3"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void createNote();
+                  }}
+                >
                   <label className="block text-sm">
-                    <span className="text-gray-600">Visibility</span>
-                    <select
-                      className="mt-1 w-full rounded-lg border p-2"
-                      value={noteVisibility}
-                      onChange={(e) => setNoteVisibility(e.target.value as "private" | "parent" | "parent_and_student")}
-                    >
-                      <option value="private">Private (staff only)</option>
-                      <option value="parent">Parent</option>
-                      <option value="parent_and_student">Parent & Student</option>
-                    </select>
-                  </label>
-
-                  <label className="block text-sm">
-                    <span className="text-gray-600">Status</span>
-                    <select
-                      className="mt-1 w-full rounded-lg border p-2"
-                      value={noteStatus}
-                      onChange={(e) => setNoteStatus(e.target.value as "draft" | "published")}
-                    >
-                      <option value="draft">Draft</option>
-                      <option value="published">Published</option>
-                    </select>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-sm mt-6 sm:mt-[30px]">
+                    <span className="text-gray-600">Title (optional)</span>
                     <input
-                      type="checkbox"
-                      checked={noteEmailOnPublish}
-                      onChange={(e) => setNoteEmailOnPublish(e.target.checked)}
-                      disabled={noteStatus !== "published"}
+                      className="mt-1 w-full rounded-lg border p-2"
+                      value={noteTitle}
+                      onChange={(e) => setNoteTitle(e.target.value)}
                     />
-                    Email parent on publish
                   </label>
+
+                  <label className="block text-sm">
+                    <span className="text-gray-600">Content (Markdown)</span>
+                    <textarea
+                      className="mt-1 w-full rounded-lg border p-2 min-h-[200px]"
+                      value={noteContent}
+                      onChange={(e) => setNoteContent(e.target.value)}
+                      placeholder={`For today's session...\n\nProgress:\n- \n\nWhat we did:\n- \n\nNext steps:\n- `}
+                    />
+                  </label>
+
+                  <div className="grid sm:grid-cols-3 gap-3">
+                    <label className="block text-sm">
+                      <span className="text-gray-600">Visibility</span>
+                      <select
+                        className="mt-1 w-full rounded-lg border p-2"
+                        value={noteVisibility}
+                        onChange={(e) => setNoteVisibility(e.target.value as "private" | "parent" | "parent_and_student")}
+                      >
+                        <option value="private">Private (staff only)</option>
+                        <option value="parent">Parent</option>
+                        <option value="parent_and_student">Parent & Student</option>
+                      </select>
+                    </label>
+
+                    <label className="block text-sm">
+                      <span className="text-gray-600">Status</span>
+                      <select
+                        className="mt-1 w-full rounded-lg border p-2"
+                        value={noteStatus}
+                        onChange={(e) => setNoteStatus(e.target.value as "draft" | "published")}
+                      >
+                        <option value="draft">Draft</option>
+                        <option value="published">Published</option>
+                      </select>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm mt-6 sm:mt-[30px]">
+                      <input
+                        type="checkbox"
+                        checked={noteEmailOnPublish}
+                        onChange={(e) => setNoteEmailOnPublish(e.target.checked)}
+                        disabled={noteStatus !== "published"}
+                      />
+                      Email parent on publish
+                    </label>
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <button type="submit" className="px-3 py-2 rounded-lg bg-black text-white">Save note</button>
+                  </div>
+                </form>
+              </section>
+
+              {/* Existing notes */}
+              <section className="bg-white border rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-medium">Existing notes</h2>
                 </div>
 
-                <div className="flex justify-end gap-2">
-                  <button type="submit" className="px-3 py-2 rounded-lg bg-black text-white">Save note</button>
-                </div>
-              </form>
-            </section>
+                {notesError ? (
+                  <p className="text-sm text-red-600">{notesError}</p>
+                ) : notes.length === 0 ? (
+                  <p className="text-sm text-gray-500">No notes yet.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {notes.map(n => (
+                      <li key={n.id} className="border rounded-lg p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium truncate">{n.title || "(Untitled note)"}</p>
+                              <span
+                                className={[
+                                  "text-xs px-2 py-0.5 rounded-full",
+                                  n.status === "published"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-yellow-100 text-yellow-800",
+                                ].join(" ")}
+                              >
+                                {n.status === "published" ? "Published" : "Draft"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {new Date(n.created_at).toLocaleString()} • {n.coach_name ?? "Coach"} • {n.visibility}
+                            </p>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex flex-wrap gap-2 shrink-0">
+                            <button
+                              onClick={() => void toggleStatus(n)}
+                              className="px-2.5 py-1.5 rounded-md text-sm bg-gray-100 hover:bg-gray-200"
+                              title={n.status === "published" ? "Revert to Draft" : "Publish"}
+                              type="button"
+                            >
+                              {n.status === "published" ? "Mark Draft" : "Publish"}
+                            </button>
+                            <button
+                              onClick={() => void deleteNote(n.id)}
+                              className="px-2.5 py-1.5 rounded-md text-sm bg-rose-100 text-rose-800 hover:bg-rose-200"
+                              title="Delete note"
+                              type="button"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+
+                        <pre className="mt-2 text-sm whitespace-pre-wrap break-words text-gray-700">
+                          {n.content_md.length > 800 ? `${n.content_md.slice(0, 800)}…` : n.content_md}
+                        </pre>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
           </div>
         )}
       </div>
