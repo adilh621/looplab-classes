@@ -7,16 +7,19 @@ import Link from "next/link";
 import { getApiBase } from "@/lib/api";
 import type { Me } from "@/lib/auth";
 import { InlineWidget } from "react-calendly";
+
+const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
 // --- local helpers to avoid `any` casts ---
 type WithEmail = { email?: string };
 type WithStatus = { status?: string };
 
 function getIntakeEmail(me: Me | null): string | undefined {
-  const intake = me?.intake as unknown as WithEmail | undefined;
+  const intake = (me?.intake ?? undefined) as WithEmail | undefined;
   return intake?.email;
 }
 function getIntakeStatus(me: Me | null): string | undefined {
-  const intake = me?.intake as unknown as WithStatus | undefined;
+  const intake = (me?.intake ?? undefined) as WithStatus | undefined;
   return intake?.status;
 }
 function getErrorMessage(e: unknown): string {
@@ -24,9 +27,6 @@ function getErrorMessage(e: unknown): string {
   if (typeof e === "string") return e;
   try { return JSON.stringify(e); } catch { return "Unknown error"; }
 }
-
-
-const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 function formatRange(startIso?: string | null, endIso?: string | null) {
   if (!startIso) return null;
@@ -106,7 +106,7 @@ function Modal({
 
 /** ===== API types ===== */
 type Booking = {
-  id: number;                     // <--- requires backend change
+  id: number;                     // requires backend change to include id in /sessions
   start_utc: string | null;
   end_utc: string | null;
   location_type: string | null;
@@ -273,8 +273,8 @@ export default function DashboardPage() {
       if (!r.ok) throw new Error(`Failed to load notes (${r.status})`);
       const data: SessionNotesPage = await r.json();
       setNotes(data.items || []);
-    } catch (e: any) {
-      setNotesError(e?.message || "Failed to load notes");
+    } catch (e: unknown) {
+      setNotesError(getErrorMessage(e));
     } finally {
       setNotesLoading(false);
     }
@@ -367,7 +367,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Email</dt>
-                <dd>{me.email ?? (me as any).intake?.email ?? "—"}</dd>
+                <dd>{me.email ?? getIntakeEmail(me) ?? "—"}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Timezone</dt>
@@ -400,7 +400,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between">
                 <dt className="text-gray-500">Status</dt>
-                <dd>{(me.intake as any)?.status ?? "—"}</dd>
+                <dd>{getIntakeStatus(me) ?? "—"}</dd>
               </div>
             </dl>
           </div>
@@ -548,7 +548,7 @@ export default function DashboardPage() {
               }}
               prefill={{
                 name: me.intake?.parent_name ?? undefined,
-                email: (me.email ?? (me as any).intake?.email) ?? undefined,
+                email: (me.email ?? getIntakeEmail(me)) ?? undefined,
               }}
               utm={{
                 utmMedium: "looplab-dashboard",
@@ -573,8 +573,8 @@ export default function DashboardPage() {
             try {
               await updateMe(payload);
               setOpenStudent(false);
-            } catch (err) {
-              alert(String(err));
+            } catch (err: unknown) {
+              alert(getErrorMessage(err));
             }
           }}
         >
@@ -625,8 +625,8 @@ export default function DashboardPage() {
             try {
               await updateMe({ preferred_days: formDays });
               setOpenDays(false);
-            } catch (err) {
-              alert(String(err));
+            } catch (err: unknown) {
+              alert(getErrorMessage(err));
             }
           }}
         >
@@ -712,8 +712,8 @@ export default function DashboardPage() {
                       : noteStatus === "published"
                         ? "Note published."
                         : "Draft saved.");
-                  } catch (err: any) {
-                    alert(err?.message || "Failed to create note");
+                  } catch (err: unknown) {
+                    alert(getErrorMessage(err));
                   }
                 }}
               >
@@ -742,7 +742,7 @@ export default function DashboardPage() {
                     <select
                       className="mt-1 w-full rounded-lg border p-2"
                       value={noteVisibility}
-                      onChange={(e) => setNoteVisibility(e.target.value as any)}
+                      onChange={(e) => setNoteVisibility(e.target.value as "private" | "parent" | "parent_and_student")}
                     >
                       <option value="private">Private (staff only)</option>
                       <option value="parent">Parent</option>
@@ -755,7 +755,7 @@ export default function DashboardPage() {
                     <select
                       className="mt-1 w-full rounded-lg border p-2"
                       value={noteStatus}
-                      onChange={(e) => setNoteStatus(e.target.value as any)}
+                      onChange={(e) => setNoteStatus(e.target.value as "draft" | "published")}
                     >
                       <option value="draft">Draft</option>
                       <option value="published">Published</option>
