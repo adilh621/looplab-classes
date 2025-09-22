@@ -28,44 +28,73 @@ export default function SessionNotesPage() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
+  let mounted = true;
 
-    async function fetchNotes() {
-      setLoading(true);
-      setErr(null);
-      try {
-        // Try a RESTful endpoint first, then fall back to query pattern.
-        const tryUrls = [
-          `${backend}/session-notes/by-session/${sessionId}`,
-          `${backend}/session-notes?session_booking_id=${sessionId}`,
-        ];
-
-        let data: SessionNote[] | null = null;
-        for (const url of tryUrls) {
-          const r = await fetch(url, { credentials: "include", cache: "no-store" });
-          if (r.ok) {
-            data = (await r.json()) as SessionNote[] | null;
-            break;
-          }
-        }
-
-        if (!mounted) return;
-        // Client-side safety filter: parents should only see published & parent-visible notes.
-        const visible = (data ?? []).filter(
-          (n) => n.status === "published" && (n.visibility === "parent" || n.visibility === "parent_and_student")
-        );
-        setNotes(visible);
-      } catch (e) {
-        if (!mounted) return;
-        setErr(e instanceof Error ? e.message : "Failed to load notes.");
-      } finally {
-        if (mounted) setLoading(false);
+  function normalizeToArray(json: unknown): SessionNote[] {
+    if (Array.isArray(json)) return json as SessionNote[];
+    if (json && typeof json === "object") {
+      const obj = json as Record<string, unknown>;
+      if (Array.isArray(obj.items)) return obj.items as SessionNote[];
+      if (Array.isArray(obj.data)) return obj.data as SessionNote[];
+      // Some backends return a single object for a single resource
+      // Try to detect a single SessionNote shape:
+      if (
+        "id" in obj &&
+        ("session_booking_id" in obj || "content_md" in obj || "status" in obj)
+      ) {
+        return [obj as SessionNote];
       }
     }
+    return [];
+  }
 
-    if (sessionId) fetchNotes();
-    return () => { mounted = false; };
-  }, [backend, sessionId]);
+  async function fetchNotes() {
+    setLoading(true);
+    setErr(null);
+    try {
+      const urls = [
+        `${backend}/session-notes/by-session/${sessionId}`,
+        `${backend}/session-notes?session_booking_id=${sessionId}`,
+      ];
+
+      let raw: unknown = null;
+      let ok = false;
+
+      for (const url of urls) {
+        const r = await fetch(url, { credentials: "include", cache: "no-store" });
+        if (r.status === 204) { ok = true; raw = []; break; } // no content
+        if (r.ok) { ok = true; raw = await r.json(); break; }
+      }
+
+      if (!mounted) return;
+      if (!ok) {
+        setNotes([]);
+        setErr("Failed to load notes.");
+        setLoading(false);
+        return;
+      }
+
+      const arr = normalizeToArray(raw);
+
+      // Parent-visible + published only (belt & suspenders)
+      const visible = arr.filter(
+        (n) => n.status === "published" && (n.visibility === "parent" || n.visibility === "parent_and_student")
+      );
+
+      setNotes(visible);
+    } catch (e) {
+      if (!mounted) return;
+      setNotes([]);
+      setErr(e instanceof Error ? e.message : "Failed to load notes.");
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  }
+
+  if (sessionId) fetchNotes();
+  return () => { mounted = false; };
+}, [backend, sessionId]);
+
 
   return (
     <main className="min-h-screen p-6 flex flex-col items-center">
