@@ -412,6 +412,15 @@ export default function DashboardPage() {
                             Cancel
                           </a>
                         )}
+
+                        {isPast && (
+                          <Link
+                            href={`/notes/${s.id}`}
+                            className="px-3 py-2 rounded-lg bg-white border text-sm hover:bg-gray-50"
+                          >
+                            View instructor notes
+                          </Link>
+                        )}
                       </div>
                     </div>
                   </div>
