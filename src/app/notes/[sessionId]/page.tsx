@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { getApiBase } from "@/lib/api";
 
@@ -20,7 +20,6 @@ type SessionNote = {
 
 export default function SessionNotesPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
-  const router = useRouter();
   const backend = getApiBase();
 
   const [loading, setLoading] = useState(true);

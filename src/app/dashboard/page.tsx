@@ -188,6 +188,9 @@ export default function DashboardPage() {
     return () => { mounted = false; };
   }, [backend, me?.authenticated]);
 
+  // helpers (defined early for use in effects)
+  const userEmail = me?.email ?? getIntakeEmail(me);
+
   // check for notes for each session
   useEffect(() => {
     let mounted = true;
@@ -250,7 +253,6 @@ export default function DashboardPage() {
   // helpers
   const parentName = me?.name ?? me?.intake?.parent_name ?? "there";
   const studentName = me?.intake?.student_name ?? "your student";
-  const userEmail = me?.email ?? getIntakeEmail(me);
   const isCoach = (userEmail ?? "").toLowerCase() === COACH_EMAIL.toLowerCase();
   const rawPreferred = me?.intake?.preferred_days as unknown;
   const preferredDays = useMemo(() => {
