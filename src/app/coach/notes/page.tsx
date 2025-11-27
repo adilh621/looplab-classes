@@ -263,6 +263,24 @@ function NotesClient() {
           <p className="text-gray-600 text-sm">Visible to Coach Adil only. Use a Session Booking ID to view/add notes.</p>
         </div>
 
+        {/* Workflow explanation */}
+        <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+          <p className="font-semibold mb-1">How this page works</p>
+          <p className="mb-1">
+            Each note is attached to a specific <span className="font-mono">session_booking_id</span>, which matches the
+            session ID shown on the parent dashboard.
+          </p>
+          <p className="mb-1">
+            Workflow:
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>Parent books a session via Calendly → it appears on their dashboard.</li>
+            <li>You copy the <span className="font-mono">Session ID</span> from the dashboard.</li>
+            <li>Paste that ID here as the <span className="font-mono">session_booking_id</span> to create notes.</li>
+            <li>Published notes with parent visibility will appear on the parent side under that same session.</li>
+          </ul>
+        </div>
+
         {/* Booking chooser */}
         <form onSubmit={handleLoadClick} className="flex flex-wrap items-end gap-2 bg-white border p-4 rounded-xl">
           <label className="block text-sm">

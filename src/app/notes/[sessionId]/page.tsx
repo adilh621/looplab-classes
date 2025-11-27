@@ -99,10 +99,14 @@ export default function SessionNotesPage() {
   return (
     <main className="min-h-screen p-6 flex flex-col items-center">
       <div className="w-full max-w-3xl border rounded-2xl p-6 shadow-sm bg-white">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Instructor notes</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-semibold">Session Notes</h1>
           <Link href="/dashboard" className="px-3 py-2 rounded-lg bg-gray-100 text-sm">← Back to dashboard</Link>
         </div>
+        <p className="mt-1 text-sm text-gray-600 mb-6">
+          These notes are written by your coach for this specific class session. They&apos;re here to help you track
+          progress and what was covered.
+        </p>
 
         {loading && <p className="mt-4 text-sm text-gray-500">Loading…</p>}
         {err && <p className="mt-4 text-sm text-rose-600">Error: {err}</p>}

@@ -8,6 +8,7 @@ import type { Me } from "@/lib/auth";
 import { InlineWidget } from "react-calendly";
 
 const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const COACH_EMAIL = "adilh621+looplab@gmail.com";
 
 // --- local helpers to avoid `any` casts ---
 type WithEmail = { email?: string };
@@ -189,6 +190,8 @@ export default function DashboardPage() {
   // helpers
   const parentName = me?.name ?? me?.intake?.parent_name ?? "there";
   const studentName = me?.intake?.student_name ?? "your student";
+  const userEmail = me?.email ?? getIntakeEmail(me);
+  const isCoach = (userEmail ?? "").toLowerCase() === COACH_EMAIL.toLowerCase();
   const rawPreferred = me?.intake?.preferred_days as unknown;
   const preferredDays = useMemo(() => {
     if (Array.isArray(rawPreferred)) return rawPreferred as string[];
@@ -423,6 +426,11 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
+                    {isCoach && (
+                      <p className="mt-2 text-xs text-gray-500">
+                        Session ID: <span className="font-mono">{s.id}</span>
+                      </p>
+                    )}
                   </div>
                 );
               })
