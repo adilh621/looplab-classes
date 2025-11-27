@@ -140,6 +140,7 @@ export default function DashboardPage() {
   // sessions
   const [sessions, setSessions] = useState<SessionsRes | null>(null);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [sessionsWithNotes, setSessionsWithNotes] = useState<Record<number, boolean>>({});
 
   // load session/me
   useEffect(() => {
@@ -186,6 +187,65 @@ export default function DashboardPage() {
 
     return () => { mounted = false; };
   }, [backend, me?.authenticated]);
+
+  // check for notes for each session
+  useEffect(() => {
+    let mounted = true;
+    if (!me?.authenticated || !sessions || !userEmail) return;
+
+    const allSessions = [...(sessions.upcoming ?? []), ...(sessions.past ?? [])];
+    if (allSessions.length === 0) return;
+
+    const uniqueIds = Array.from(new Set(allSessions.map(s => s.id)));
+
+    (async () => {
+      const map: Record<number, boolean> = {};
+      
+      await Promise.all(
+        uniqueIds.map(async (id) => {
+          try {
+            const res = await fetch(
+              `${backend}/session-notes?session_booking_id=${id}&status=published&parent_email=${encodeURIComponent(userEmail)}&limit=1`,
+              {
+                credentials: "include",
+                cache: "no-store",
+              }
+            );
+            if (!res.ok) {
+              if (process.env.NODE_ENV !== "production") {
+                console.error(`Failed to check notes for session ${id}:`, res.status);
+              }
+              return;
+            }
+            const data = await res.json();
+            // Normalize response - could be array or object with items/data
+            const notes = Array.isArray(data) 
+              ? data 
+              : (Array.isArray(data?.items) ? data.items : Array.isArray(data?.data) ? data.data : []);
+            // Filter for published, parent-visible notes only
+            const visibleNotes = notes.filter(
+              (n: { status?: string; visibility?: string }) =>
+                n.status === "published" &&
+                (n.visibility === "parent" || n.visibility === "parent_and_student")
+            );
+            if (visibleNotes.length > 0) {
+              map[id] = true;
+            }
+          } catch (err) {
+            if (process.env.NODE_ENV !== "production") {
+              console.error(`Error checking notes for session ${id}:`, err);
+            }
+            // On error, treat as "no notes" - don't block UI
+          }
+        })
+      );
+
+      if (!mounted) return;
+      setSessionsWithNotes(map);
+    })();
+
+    return () => { mounted = false; };
+  }, [backend, me?.authenticated, sessions, userEmail]);
 
   // helpers
   const parentName = me?.name ?? me?.intake?.parent_name ?? "there";
@@ -395,6 +455,15 @@ export default function DashboardPage() {
                             Join
                           </a>
                         )}
+                        {sessionsWithNotes[s.id] && (
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/notes/${s.id}`)}
+                            className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            View note
+                          </button>
+                        )}
                         {s.kind !== "past" && s.reschedule_url && (
                           <a
                             href={s.reschedule_url}
@@ -414,15 +483,6 @@ export default function DashboardPage() {
                           >
                             Cancel
                           </a>
-                        )}
-
-                        {isPast && (
-                          <Link
-                            href={`/notes/${s.id}`}
-                            className="px-3 py-2 rounded-lg bg-white border text-sm hover:bg-gray-50"
-                          >
-                            View instructor notes
-                          </Link>
                         )}
                       </div>
                     </div>
