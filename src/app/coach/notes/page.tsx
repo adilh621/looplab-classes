@@ -31,6 +31,25 @@ type BookingMeta = {
   end_utc: string | null;
 };
 
+// Session types (matching dashboard)
+type Booking = {
+  id: number;
+  start_utc: string | null;
+  end_utc: string | null;
+  location_type: string | null;
+  join_url: string | null;
+  reschedule_url: string | null;
+  cancel_url: string | null;
+  calendly_event_uuid?: string | null;
+  calendly_invitee_uuid?: string | null;
+  status?: string | null;
+};
+
+type SessionsRes = {
+  upcoming: Booking[];
+  past: Booking[];
+};
+
 // helper: safely read intake.email without `any`
 type WithEmail = { email?: string };
 function getIntakeEmail(me: Me): string | undefined {
@@ -55,6 +74,109 @@ function formatRange(startIso?: string | null, endIso?: string | null) {
   const startPart = timeFmt.format(start);
   const endPart = end ? timeFmt.format(end) : null;
   return endPart ? `${datePart}, ${startPart}–${endPart}` : `${datePart}, ${startPart}`;
+}
+
+// Session row component for the session list
+function SessionRow({ session, onPickId }: { session: Booking; onPickId: (id: number) => void }) {
+  return (
+    <div className="flex items-center justify-between gap-3 p-2 border rounded-lg hover:bg-gray-50">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-medium">ID: {session.id}</span>
+          {session.status && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+              {session.status}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-gray-600 mt-0.5">
+          {formatRange(session.start_utc, session.end_utc) || "No date"}
+          {session.location_type && ` • ${session.location_type.replace("_", " ")}`}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          onPickId(session.id);
+          if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(String(session.id)).catch(() => {});
+          }
+        }}
+        className="text-xs font-medium text-blue-600 hover:underline px-2 py-1"
+      >
+        Use ID
+      </button>
+    </div>
+  );
+}
+
+// Session list component
+function CoachSessionList({ onSelectBookingId }: { onSelectBookingId: (id: number) => void }) {
+  const backend = getApiBase();
+  const [upcomingSessions, setUpcomingSessions] = useState<Booking[]>([]);
+  const [pastSessions, setPastSessions] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const r = await fetch(`${backend}/sessions?limit_past=50&limit_upcoming=50`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!r.ok) throw new Error(`Failed to load sessions (${r.status})`);
+        const data: SessionsRes = await r.json();
+        if (!mounted) return;
+        setUpcomingSessions(data.upcoming || []);
+        setPastSessions(data.past || []);
+        setError(null);
+      } catch (e: unknown) {
+        if (!mounted) return;
+        setError(getErrorMessage(e));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [backend]);
+
+  return (
+    <section className="mt-6 bg-white border rounded-xl p-4">
+      <h2 className="text-lg font-semibold mb-4">Your Sessions</h2>
+      {loading && <p className="mt-2 text-sm text-gray-500">Loading sessions…</p>}
+      {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+
+      {!loading && !error && (
+        <>
+          <div className="mt-3">
+            <h3 className="text-sm font-medium text-gray-700">Upcoming</h3>
+            <div className="mt-2 space-y-2">
+              {upcomingSessions.length === 0 && (
+                <p className="text-sm text-gray-500">No upcoming sessions.</p>
+              )}
+              {upcomingSessions.map((session) => (
+                <SessionRow key={session.id} session={session} onPickId={onSelectBookingId} />
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <h3 className="text-sm font-medium text-gray-700">Past</h3>
+            <div className="mt-2 space-y-2">
+              {pastSessions.length === 0 && (
+                <p className="text-sm text-gray-500">No past sessions.</p>
+              )}
+              {pastSessions.map((session) => (
+                <SessionRow key={session.id} session={session} onPickId={onSelectBookingId} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </section>
+  );
 }
 
 /** Page wrapper: provides Suspense boundary for useSearchParams usage */
@@ -170,6 +292,15 @@ function NotesClient() {
     search.set("booking", String(bookingId));
     router.replace(`/coach/notes?${search.toString()}`);
     await loadNotesForBooking(bookingId);
+  }
+
+  function handleSelectBookingId(id: number) {
+    setBookingId(id);
+    // Optionally update URL and load notes immediately
+    const search = new URLSearchParams(Array.from(params.entries()));
+    search.set("booking", String(id));
+    router.replace(`/coach/notes?${search.toString()}`);
+    void loadNotesForBooking(id);
   }
 
   async function createNote() {
@@ -296,6 +427,9 @@ function NotesClient() {
           </label>
           <button type="submit" className="px-3 py-2 rounded-lg bg-black text-white">Load</button>
         </form>
+
+        {/* Session list */}
+        <CoachSessionList onSelectBookingId={handleSelectBookingId} />
 
         {typeof bookingId === "number" && (
           <div className="mt-6 grid gap-6">
