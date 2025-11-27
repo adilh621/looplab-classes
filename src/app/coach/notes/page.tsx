@@ -43,6 +43,9 @@ type Booking = {
   calendly_event_uuid?: string | null;
   calendly_invitee_uuid?: string | null;
   status?: string | null;
+  // Optional parent info (included in admin mode)
+  parent_email?: string | null;
+  parent_name?: string | null;
 };
 
 type SessionsRes = {
@@ -92,6 +95,8 @@ function SessionRow({ session, onPickId }: { session: Booking; onPickId: (id: nu
         <p className="text-xs text-gray-600 mt-0.5">
           {formatRange(session.start_utc, session.end_utc) || "No date"}
           {session.location_type && ` • ${session.location_type.replace("_", " ")}`}
+          {session.parent_name && ` • ${session.parent_name}`}
+          {session.parent_email && !session.parent_name && ` • ${session.parent_email}`}
         </p>
       </div>
       <button
@@ -122,7 +127,7 @@ function CoachSessionList({ onSelectBookingId }: { onSelectBookingId: (id: numbe
     let mounted = true;
     (async () => {
       try {
-        const r = await fetch(`${backend}/sessions?limit_past=50&limit_upcoming=50`, {
+        const r = await fetch(`${backend}/sessions?limit_past=50&limit_upcoming=50&admin_all=true`, {
           credentials: "include",
           cache: "no-store",
         });
