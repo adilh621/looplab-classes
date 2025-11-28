@@ -1,6 +1,7 @@
 export type Progress = {
   unlockedLevels: number[];
   bestStars: Record<number, number>; // stars 1–3
+  currentLevel?: number; // current level the user is on
 };
 
 const STORAGE_KEY = "loopy_progress_v1";
@@ -21,7 +22,10 @@ export function loadProgress(): Progress {
       return parsed;
     }
   } catch (e) {
-    console.error("Failed to load progress:", e);
+    // Silently fail and return default progress
+    if (process.env.NODE_ENV === "development") {
+      console.error("Failed to load progress:", e);
+    }
   }
   
   return { unlockedLevels: [1], bestStars: {} };
@@ -33,7 +37,10 @@ export function saveProgress(progress: Progress): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   } catch (e) {
-    console.error("Failed to save progress:", e);
+    // Silently fail - progress saving is not critical
+    if (process.env.NODE_ENV === "development") {
+      console.error("Failed to save progress:", e);
+    }
   }
 }
 

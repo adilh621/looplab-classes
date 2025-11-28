@@ -11,6 +11,10 @@ import {
   DragOverlay,
   useDraggable,
   useDroppable,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
 } from "@dnd-kit/core";
 
 // Types for drag data
@@ -381,12 +385,12 @@ function InstructionsPanel({
   }[runStatus];
 
   return (
-    <div className="border rounded-xl p-4 bg-white space-y-4 overflow-y-auto">
-      <div>
+    <div className="border rounded-xl p-4 bg-white space-y-4 overflow-y-auto h-full flex flex-col">
+      <div className="flex-shrink-0">
         <h2 className="text-lg font-semibold mb-2">Level {level.id}: {level.name}</h2>
         <p className="text-sm text-gray-700 whitespace-pre-wrap">{level.instructions}</p>
       </div>
-      <div className="border-t pt-4">
+      <div className="border-t pt-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">Status:</span>
           <span className={`text-sm font-semibold ${
@@ -551,6 +555,9 @@ function PaletteBlock({ blockType, onAddBlock }: PaletteBlockProps) {
       : undefined,
     opacity: isDragging ? 0.8 : 1,
     cursor: "grab",
+    touchAction: "none", // Prevent default touch behaviors on the block
+    WebkitUserSelect: "none", // Prevent text selection on iOS
+    userSelect: "none",
   };
 
   const handleClick = () => {
@@ -565,6 +572,7 @@ function PaletteBlock({ blockType, onAddBlock }: PaletteBlockProps) {
       {...attributes}
       style={style}
       className="w-full"
+      suppressHydrationWarning
     >
       <button
         onClick={handleClick}
@@ -666,6 +674,9 @@ function DraggableBlock({
     cursor: actualIsDragging ? "grabbing" : "grab",
     opacity: actualIsDragging ? 0.8 : 1,
     zIndex: actualIsDragging ? 1000 : 1,
+    touchAction: "none", // Prevent default touch behaviors (scrolling, zooming) on the block itself
+    WebkitUserSelect: "none", // Prevent text selection on iOS
+    userSelect: "none",
   };
 
   return (
@@ -675,6 +686,7 @@ function DraggableBlock({
       {...listeners}
       style={style}
       className="inline-flex min-w-[180px] max-w-[260px]"
+      suppressHydrationWarning
     >
       <BlockShape 
         width={BLOCK_WIDTH} 
@@ -804,8 +816,12 @@ function WorkspacePanel({
 
       <div
         ref={setWorkspaceRef}
-        className="flex-1 rounded-lg border border-dashed border-slate-300 bg-slate-50 relative overflow-auto min-h-[100px]"
-        style={{ height: "500px" }}
+        className="flex-1 rounded-lg border border-dashed border-slate-300 bg-slate-50 relative overflow-auto min-h-[200px] md:min-h-[400px]"
+        style={{ 
+          height: "400px",
+          touchAction: "pan-y pinch-zoom", // Allow vertical scrolling while dragging
+        }}
+        suppressHydrationWarning
       >
         {program.length === 0 ? (
           <p className="absolute inset-0 flex items-center justify-center text-xs text-slate-400">
@@ -854,11 +870,29 @@ export default function LoopyPage() {
   const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
 
+  // Configure sensors for better mobile touch support
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement before drag starts (prevents accidental drags)
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // 200ms delay for touch to prevent conflicts with scrolling
+        tolerance: 8, // 8px tolerance for touch movement
+      },
+    })
+  );
+
   // Load progress on mount
   useEffect(() => {
     const loaded = loadProgress();
     setProgress(loaded);
-    if (loaded.unlockedLevels.length > 0) {
+    // Load the saved current level, or default to first unlocked level
+    if (loaded.currentLevel && loaded.unlockedLevels.includes(loaded.currentLevel)) {
+      setCurrentLevelId(loaded.currentLevel);
+    } else if (loaded.unlockedLevels.length > 0) {
       setCurrentLevelId(loaded.unlockedLevels[0]);
     }
   }, []);
@@ -877,6 +911,18 @@ export default function LoopyPage() {
     setLastDirection("right");
     setRunStatus("idle");
   }, [currentLevelId, initializeWorkspace]);
+
+  // Save current level to progress whenever it changes
+  useEffect(() => {
+    setProgress((prevProgress) => {
+      const updatedProgress: Progress = {
+        ...prevProgress,
+        currentLevel: currentLevelId,
+      };
+      saveProgress(updatedProgress);
+      return updatedProgress;
+    });
+  }, [currentLevelId]);
 
   const handleAddBlock = useCallback((block: Block) => {
     if (runStatus === "running") return;
@@ -902,8 +948,9 @@ export default function LoopyPage() {
     clearProgress();
 
     // Reset progress state
-    const defaultProgress = { unlockedLevels: [1], bestStars: {} };
+    const defaultProgress: Progress = { unlockedLevels: [1], bestStars: {}, currentLevel: 1 };
     setProgress(defaultProgress);
+    saveProgress(defaultProgress);
 
     // Reset to level 1
     const firstLevel = getLevelById(1);
@@ -978,6 +1025,7 @@ export default function LoopyPage() {
       const stars = calculateStars(attachedBlocks.length, level.optimalBlockCount);
       const currentBest = progress.bestStars[level.id] || 0;
       
+      let updatedProgress = progress;
       if (stars > currentBest) {
         const newProgress: Progress = {
           ...progress,
@@ -994,6 +1042,15 @@ export default function LoopyPage() {
         
         setProgress(newProgress);
         saveProgress(newProgress);
+        updatedProgress = newProgress;
+      }
+      
+      // Auto-advance to next level after a short delay
+      const nextLevelId = level.id + 1;
+      const nextLevel = LEVELS.find(l => l.id === nextLevelId);
+      if (nextLevel && updatedProgress.unlockedLevels.includes(nextLevelId)) {
+        await sleep(1500); // Wait 1.5 seconds to show success state
+        setCurrentLevelId(nextLevelId);
       }
     } else {
       setRunStatus("crash");
@@ -1136,8 +1193,8 @@ export default function LoopyPage() {
   };
 
   return (
-    <main className="min-h-screen p-6 bg-gray-50">
-      <div className="max-w-6xl mx-auto h-[95vh] flex flex-col gap-4">
+    <main className="min-h-screen p-3 md:p-6 bg-gray-50">
+      <div className="max-w-6xl mx-auto h-[95vh] md:h-[95vh] flex flex-col gap-2 md:gap-4">
         {/* Level selector */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-gray-700">Level:</span>
@@ -1174,30 +1231,36 @@ export default function LoopyPage() {
 
         {/* Main game grid */}
         <DndContext 
+          sensors={sensors}
           onDragStart={handleDragStart} 
           onDragEnd={handleDragEnd}
         >
           <div
-            className="flex-1 grid gap-4"
+            className="flex-1 grid gap-4 grid-cols-1 md:grid-cols-2"
             style={{
-              gridTemplateColumns: "280px 1fr",
-              gridTemplateRows: "320px 550px",
+              gridTemplateRows: "auto auto",
             }}
           >
-            <InstructionsPanel level={level} runStatus={runStatus} />
-            <div className="h-full">
+            <div className="md:row-span-1 h-full flex">
+              <InstructionsPanel level={level} runStatus={runStatus} />
+            </div>
+            <div className="h-full min-h-[250px] md:min-h-0 flex">
               <GameBoard level={level} loopyPos={loopyPos} lastDirection={lastDirection} />
             </div>
-            <BlockPalette level={level} onAddBlock={handleAddBlock} />
-            <WorkspacePanel
-              program={program}
-              onRun={handleRunProgram}
-              onReset={handleReset}
-              runStatus={runStatus}
-              workspaceRef={workspaceRef}
-              activeDragId={activeBlockId}
-              dragPosition={dragPosition}
-            />
+            <div className="md:row-span-1">
+              <BlockPalette level={level} onAddBlock={handleAddBlock} />
+            </div>
+            <div className="md:row-span-1">
+              <WorkspacePanel
+                program={program}
+                onRun={handleRunProgram}
+                onReset={handleReset}
+                runStatus={runStatus}
+                workspaceRef={workspaceRef}
+                activeDragId={activeBlockId}
+                dragPosition={dragPosition}
+              />
+            </div>
           </div>
           <DragOverlay>
             {activeBlockTemplate && (
