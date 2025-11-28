@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { LEVELS, getLevelById, BlockType, type Block, type LevelConfig } from "@/loopy/levels";
 import { loadProgress, saveProgress, type Progress } from "@/loopy/progress";
@@ -119,10 +119,40 @@ function GameBoard({
   loopyPos: { x: number; y: number };
   lastDirection: "left" | "right" | "up" | "down";
 }) {
-  const tileSize = 64;
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  const [tileSize, setTileSize] = useState<number>(64);
+
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+
+    const updateSize = () => {
+      const rect = el.getBoundingClientRect();
+      // small padding inside the board for aesthetics
+      const padding = 16;
+      const usableWidth = rect.width - padding * 2;
+      const usableHeight = rect.height - padding * 2;
+
+      const sizeFromWidth = usableWidth / level.width;
+      const sizeFromHeight = usableHeight / level.height;
+
+      const size = Math.floor(Math.min(sizeFromWidth, sizeFromHeight));
+      setTileSize(size);
+    };
+
+    updateSize();
+
+    const observer = new ResizeObserver(() => updateSize());
+    observer.observe(el);
+
+    return () => observer.disconnect();
+  }, [level.width, level.height]);
 
   return (
-    <div className="border rounded-xl p-4 bg-sky-50 flex items-center justify-center">
+    <div
+      ref={boardRef}
+      className="relative h-full w-full rounded-xl border border-slate-200 bg-sky-50 overflow-hidden flex items-center justify-center"
+    >
       <div
         className="relative bg-sky-900 rounded-xl border border-slate-700 overflow-hidden"
         style={{
@@ -130,11 +160,10 @@ function GameBoard({
           gridTemplateColumns: `repeat(${level.width}, ${tileSize}px)`,
           gridTemplateRows: `repeat(${level.height}, ${tileSize}px)`,
           imageRendering: "pixelated" as const,
+          padding: 16,
         }}
       >
         {level.grid.map((tile, index) => {
-          const x = index % level.width;
-          const y = Math.floor(index / level.width);
           return (
             <div
               key={index}
@@ -175,8 +204,8 @@ function GameBoard({
         <div
           className="absolute transition-all duration-200 z-10"
           style={{
-            left: loopyPos.x * tileSize,
-            top: loopyPos.y * tileSize,
+            left: loopyPos.x * tileSize + 16, // same padding offset
+            top: loopyPos.y * tileSize + 16,
             width: tileSize,
             height: tileSize,
           }}
@@ -268,7 +297,6 @@ function WorkspacePanel({
       case BlockType.MOVE_DOWN: return "Move Down";
       case BlockType.MOVE_LEFT: return "Move Left";
       case BlockType.MOVE_RIGHT: return "Move Right";
-      default: return block.type;
     }
   };
 
@@ -461,7 +489,9 @@ export default function LoopyPage() {
           }}
         >
           <InstructionsPanel level={level} runStatus={runStatus} />
-          <GameBoard level={level} loopyPos={loopyPos} lastDirection={lastDirection} />
+          <div className="h-full">
+            <GameBoard level={level} loopyPos={loopyPos} lastDirection={lastDirection} />
+          </div>
           <BlockPalette level={level} onAddBlock={handleAddBlock} />
           <WorkspacePanel
             program={program}
