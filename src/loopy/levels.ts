@@ -106,21 +106,21 @@ export const LEVELS: LevelConfig[] = [
   },
   {
     id: 2,
-    name: "Up and Over",
+    name: "Repeat the Move",
     width: 5,
-    height: 4,
-    grid: createGrid(5, 4, [
+    height: 3,
+    grid: createGrid(5, 3, [
       ["empty", "empty", "empty", "empty", "empty"],
-      ["empty", "empty", "goal", "empty", "empty"],
+      ["start", "empty", "empty", "empty", "goal"],
       ["empty", "empty", "empty", "empty", "empty"],
-      ["start", "empty", "empty", "empty", "empty"],
     ]),
-    start: { x: 0, y: 3 },
-    goal: { x: 2, y: 1 }, // Moved to middle of board
-    allowedBlocks: [BlockType.POINT_UP, BlockType.POINT_RIGHT, BlockType.MOVE_FORWARD],
-    optimalBlockCount: 6, // 2 direction blocks + 4 move forward blocks (2 right + 2 up)
-    instructions: "Loopy needs to go right (90°) and then up (0°) to reach the apple. Use Point Right (90°) and Point Up (0°) blocks to set the direction, then Move Forward!",
-    hint: "Point Right (90°), then move forward 2 times. Then Point Up (0°), then move forward 2 times.",
+    start: { x: 0, y: 1 },
+    goal: { x: 4, y: 1 },
+    allowedBlocks: [BlockType.POINT_RIGHT, BlockType.MOVE_FORWARD, BlockType.REPEAT],
+    optimalBlockCount: 3, // 1 direction block + 1 repeat block (containing 1 move forward)
+    instructions: "Help Loopy reach the apple! This time, try using a Repeat block to repeat the Move Forward action. First point Loopy right (90°), then use a Repeat block with Move Forward inside it.",
+    hint: "Use 1 Point Right (90°) block, then a Repeat block set to 4 with 1 Move Forward block inside it.",
+    initialHeading: 270, // Start facing left (270°)
   },
   {
     id: 3,

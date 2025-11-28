@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { LEVELS, getLevelById, BlockType, type Block, type LevelConfig, type BlockPosition } from "@/loopy/levels";
 import { loadProgress, saveProgress, clearProgress, type Progress } from "@/loopy/progress";
@@ -61,12 +61,15 @@ function getHeadingFromBlockType(blockType: BlockType): Heading | null {
 }
 
 // Helper functions
-function expandProgram(blocks: Block[]): BlockType[] {
+function expandProgram(blocks: Block[], allBlocks: Block[]): BlockType[] {
   const result: BlockType[] = [];
   for (const b of blocks) {
     if (b.type === BlockType.REPEAT) {
+      // Use the children property for nested blocks inside REPEAT
+      const children = b.children || [];
+      // Repeat the children blocks
       for (let i = 0; i < b.count; i++) {
-        result.push(...expandProgram(b.children));
+        result.push(...expandProgram(children, allBlocks));
       }
     } else {
       result.push(b.type);
@@ -235,6 +238,13 @@ function applySnapping(blocks: Block[], movedId: string, draggedPosition?: { x: 
     if (b.connection.prevBlockId === movedId) {
       return { ...b, connection: { ...b.connection, prevBlockId: null } };
     }
+    // Remove from REPEAT block's children if present
+    if (b.type === BlockType.REPEAT && b.children) {
+      const filteredChildren = b.children.filter(child => child.id !== movedId);
+      if (filteredChildren.length !== b.children.length) {
+        return { ...b, children: filteredChildren } as Block;
+      }
+    }
     if (b.id === movedId) {
       return {
         ...b,
@@ -259,6 +269,75 @@ function applySnapping(blocks: Block[], movedId: string, draggedPosition?: { x: 
   // Snap moved block directly under bestTarget (no gap - blocks interlock)
   const snappedX = bestTarget.position.x;
   const snappedY = bestTarget.position.y + BLOCK_HEIGHT + BLOCK_SPACING;
+
+  // Helper to find parent REPEAT block if bestTarget is a child of one
+  const findParentRepeatBlock = (block: Block): Block | null => {
+    if (block.connection.prevBlockId) {
+      const parent = updatedBlocks.find(b => b.id === block.connection.prevBlockId);
+      if (parent && parent.type === BlockType.REPEAT) {
+        return parent;
+      }
+      if (parent) {
+        return findParentRepeatBlock(parent);
+      }
+    }
+    return null;
+  };
+
+  // Special handling for REPEAT blocks: blocks snapped below go into children
+  if (bestTarget.type === BlockType.REPEAT) {
+    return updatedBlocks.map((b) => {
+      if (b.id === movedId) {
+        return {
+          ...b,
+          position: { x: snappedX, y: snappedY },
+          connection: {
+            prevBlockId: bestTarget!.id,
+            nextBlockId: null,
+          },
+        };
+      }
+      if (b.id === bestTarget.id) {
+        // Add the moved block to the REPEAT block's children (avoid duplicates)
+        const currentChildren = (b.type === BlockType.REPEAT ? b.children : []) || [];
+        if (!currentChildren.some(child => child.id === movedId)) {
+          return {
+            ...b,
+            children: [...currentChildren, moved],
+          } as Block;
+        }
+      }
+      return b;
+    });
+  }
+
+  // If bestTarget is a child of a REPEAT block, add to that REPEAT's children
+  const parentRepeat = findParentRepeatBlock(bestTarget);
+  if (parentRepeat) {
+    return updatedBlocks.map((b) => {
+      if (b.id === movedId) {
+        return {
+          ...b,
+          position: { x: snappedX, y: snappedY },
+          connection: {
+            prevBlockId: bestTarget!.id,
+            nextBlockId: null,
+          },
+        };
+      }
+      if (b.id === parentRepeat.id) {
+        // Add the moved block to the parent REPEAT block's children (avoid duplicates)
+        const currentChildren = (b.type === BlockType.REPEAT ? b.children : []) || [];
+        if (!currentChildren.some(child => child.id === movedId)) {
+          return {
+            ...b,
+            children: [...currentChildren, moved],
+          } as Block;
+        }
+      }
+      return b;
+    });
+  }
 
   // Handle insertion: if bestTarget has a next block, insert moved block between them
   const existingNextId = bestTarget.connection.nextBlockId;
@@ -322,6 +401,192 @@ function createBlockInstance(blockType: BlockType, position: BlockPosition): Blo
   }
 
   throw new Error("Unsupported block type");
+}
+
+// RepeatBlockShape component - C-shaped block for REPEAT blocks (like Scratch)
+type RepeatBlockShapeProps = {
+  count: number;
+  onCountChange: (count: number) => void;
+  highlight?: boolean;
+  children?: React.ReactNode; // Blocks nested inside the repeat
+};
+
+// Inner padding constants for tight Scratch-like appearance
+const INNER_PADDING_TOP = 2;
+const INNER_PADDING_BOTTOM = 2;
+const INNER_PADDING_LEFT = 4;
+const MIN_CONTENT_HEIGHT = 40; // Minimum height when no children
+
+function RepeatBlockShape({
+  count,
+  onCountChange,
+  highlight = false,
+  children,
+}: RepeatBlockShapeProps) {
+  const w = BLOCK_WIDTH;
+  const headerHeight = BLOCK_HEIGHT;
+  const r = CORNER_RADIUS;
+  const nw = NOTCH_WIDTH;
+  const nh = NOTCH_HEIGHT;
+  const no = NOTCH_OFFSET;
+  const sideWidth = 20; // Width of the left side bar
+  
+  // Measure actual height of nested children
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [measuredHeight, setMeasuredHeight] = useState(0);
+
+  // Measure children height after render and on resize
+  useLayoutEffect(() => {
+    const measureHeight = () => {
+      if (contentRef.current) {
+        // For absolutely positioned children, find the bottommost element
+        const children = contentRef.current.children;
+        let maxBottom = 0;
+        
+        if (children.length === 0) {
+          setMeasuredHeight(0);
+          return;
+        }
+        
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i] as HTMLElement;
+          const rect = child.getBoundingClientRect();
+          const containerRect = contentRef.current.getBoundingClientRect();
+          const relativeTop = rect.top - containerRect.top;
+          const relativeBottom = relativeTop + rect.height;
+          maxBottom = Math.max(maxBottom, relativeBottom);
+        }
+        
+        // Use measured height or fallback to minimum
+        const height = maxBottom > 0 ? maxBottom : MIN_CONTENT_HEIGHT;
+        setMeasuredHeight(height);
+      }
+    };
+
+    // Use requestAnimationFrame to ensure layout is complete
+    requestAnimationFrame(() => {
+      measureHeight();
+    });
+
+    // Also observe resize changes for dynamic content
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(measureHeight);
+    });
+    
+    if (contentRef.current) {
+      resizeObserver.observe(contentRef.current);
+      // Also observe all children
+      Array.from(contentRef.current.children).forEach(child => {
+        resizeObserver.observe(child as Element);
+      });
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [children]);
+
+  // Calculate contentHeight based on measured height + padding
+  const contentHeight = Math.max(
+    MIN_CONTENT_HEIGHT,
+    measuredHeight + INNER_PADDING_TOP + INNER_PADDING_BOTTOM
+  );
+  const totalHeight = headerHeight + contentHeight + nh; // Include tab at bottom
+
+  // C-shape path: top bar with groove, left side, bottom bar with tab
+  // The cavity starts at headerHeight + INNER_PADDING_TOP and ends at headerHeight + contentHeight - INNER_PADDING_BOTTOM
+  const path = `
+    M ${r},0
+    L ${no},0
+    L ${no},${nh}
+    L ${no + nw},${nh}
+    L ${no + nw},0
+    L ${w - r},0
+    Q ${w},0 ${w},${r}
+    L ${w},${headerHeight - r}
+    Q ${w},${headerHeight} ${w - r},${headerHeight}
+    L ${sideWidth},${headerHeight}
+    L ${sideWidth},${headerHeight + contentHeight}
+    L ${no + nw},${headerHeight + contentHeight}
+    L ${no + nw},${headerHeight + contentHeight + nh}
+    L ${no},${headerHeight + contentHeight + nh}
+    L ${no},${headerHeight + contentHeight}
+    L ${r},${headerHeight + contentHeight}
+    Q 0,${headerHeight + contentHeight} 0,${headerHeight + contentHeight - r}
+    L 0,${headerHeight + r}
+    Q 0,${headerHeight} ${r},${headerHeight}
+    L ${r},0
+    Z
+  `.replace(/\s+/g, ' ').trim();
+
+  const handleCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10);
+    if (!isNaN(value) && value > 0 && value <= 99) {
+      onCountChange(value);
+    }
+  };
+
+  return (
+    <div className="relative" style={{ width: w, height: totalHeight }}>
+      <svg
+        width={w}
+        height={totalHeight}
+        className="absolute"
+        style={{ pointerEvents: 'none', top: 0, left: 0 }}
+      >
+        <path
+          d={path}
+          fill={highlight ? "#fb923c" : "#f97316"} // Orange-500, brighter when highlighted
+          stroke={highlight ? "#ea580c" : "transparent"}
+          strokeWidth={highlight ? 3 : 0}
+          style={{
+            filter: highlight ? 'drop-shadow(0 0 12px rgba(234, 88, 12, 0.8)) drop-shadow(0 0 6px rgba(251, 146, 60, 0.6))' : undefined,
+            transition: 'all 0.2s ease-out',
+          }}
+        />
+      </svg>
+      {/* Header with "repeat" text and number input */}
+      <div
+        className="absolute flex items-center justify-center gap-2"
+        style={{
+          left: 0,
+          top: 0,
+          width: w,
+          height: headerHeight,
+          paddingTop: nh + 4,
+          paddingBottom: 4,
+        }}
+      >
+        <span className="text-sm font-semibold text-white">repeat</span>
+        <input
+          type="number"
+          min="1"
+          max="99"
+          value={count}
+          onChange={handleCountChange}
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          className="w-12 h-6 rounded-full bg-white text-gray-900 text-sm font-semibold text-center border-0 focus:outline-none focus:ring-2 focus:ring-orange-300"
+          style={{ pointerEvents: 'auto' }}
+        />
+        <span className="text-sm font-semibold text-white">times</span>
+      </div>
+      {/* Content area for nested blocks - positioned tightly with small padding */}
+      <div
+        ref={contentRef}
+        className="absolute"
+        style={{
+          left: sideWidth + INNER_PADDING_LEFT,
+          top: headerHeight + INNER_PADDING_TOP,
+          width: w - sideWidth - INNER_PADDING_LEFT * 2,
+          margin: 0,
+          padding: 0,
+        }}
+      >
+        {children}
+      </div>
+    </div>
+  );
 }
 
 // BlockShape component - Scratch-style block with top groove and bottom tab
@@ -650,9 +915,20 @@ function PaletteBlock({ blockType, onAddBlock }: PaletteBlockProps) {
         className="w-full"
         style={{ pointerEvents: isDragging ? 'none' : 'auto' }}
       >
-        <BlockShape width={BLOCK_WIDTH} height={BLOCK_HEIGHT}>
-          <span className="text-sm font-semibold text-white">{labelForBlockType(blockType)}</span>
-        </BlockShape>
+        {blockType === BlockType.REPEAT ? (
+          <RepeatBlockShape
+            count={2}
+            onCountChange={() => {}}
+          />
+        ) : (
+          <BlockShape 
+            width={BLOCK_WIDTH} 
+            height={BLOCK_HEIGHT}
+            color={blockType === BlockType.WHEN_RUN_CLICKED ? "#22c55e" : "#2563eb"}
+          >
+            <span className="text-sm font-semibold text-white">{labelForBlockType(blockType)}</span>
+          </BlockShape>
+        )}
       </button>
     </div>
   );
@@ -684,6 +960,8 @@ type DraggableBlockProps = {
   allBlocks?: Block[];
   activeDragId?: string | null;
   onDragPositionUpdate?: (id: string, position: { x: number; y: number }) => void;
+  onUpdateBlock?: (id: string, updates: Partial<Block>) => void;
+  allBlocksForNesting?: Block[]; // All blocks for finding nested children
 };
 
 function DraggableBlock({ 
@@ -691,6 +969,8 @@ function DraggableBlock({
   highlight: externalHighlight = false,
   isDragging: externalIsDragging = false,
   onDragPositionUpdate,
+  onUpdateBlock,
+  allBlocksForNesting = [],
 }: DraggableBlockProps) {
   
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -735,6 +1015,19 @@ function DraggableBlock({
   // Use the highlight passed from parent (computed in real-time)
   const finalHighlight = externalHighlight;
 
+  // Handle REPEAT block count update
+  const handleRepeatCountChange = (count: number) => {
+    if (block.type === BlockType.REPEAT && onUpdateBlock) {
+      onUpdateBlock(block.id, { count } as Partial<Block>);
+    }
+  };
+
+  // Find nested blocks inside REPEAT block (from children property)
+  const nestedBlocks: Block[] = [];
+  if (block.type === BlockType.REPEAT) {
+    nestedBlocks.push(...(block.children || []));
+  }
+
   const style: React.CSSProperties = {
     position: "absolute",
     left: block.position.x,
@@ -750,6 +1043,61 @@ function DraggableBlock({
     userSelect: "none",
   };
 
+  // Render REPEAT block with special C-shape
+  if (block.type === BlockType.REPEAT) {
+    return (
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        style={style}
+        className="inline-flex"
+        suppressHydrationWarning
+      >
+        <RepeatBlockShape
+          count={block.count}
+          onCountChange={handleRepeatCountChange}
+          highlight={finalHighlight}
+        >
+          {/* Render nested blocks inside the repeat */}
+          {nestedBlocks.length > 0 && (
+            <div 
+              className="relative" 
+              style={{ 
+                width: '100%',
+                margin: 0,
+                padding: 0,
+                minHeight: 0,
+              }}
+            >
+              {nestedBlocks.map((nestedBlock, idx) => {
+                return (
+                  <div
+                    key={nestedBlock.id}
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: idx * (BLOCK_HEIGHT + BLOCK_SPACING),
+                      margin: 0,
+                      padding: 0,
+                    }}
+                  >
+                    <DraggableBlock
+                      block={{ ...nestedBlock, position: { x: 0, y: 0 } }}
+                      allBlocksForNesting={allBlocksForNesting}
+                      onUpdateBlock={onUpdateBlock}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </RepeatBlockShape>
+      </div>
+    );
+  }
+
+  // Render regular blocks
   return (
     <div
       ref={setNodeRef}
@@ -798,6 +1146,7 @@ function WorkspacePanel({
   workspaceRef,
   activeDragId,
   dragPosition,
+  onUpdateBlock,
 }: {
   program: Block[];
   onRun: () => void;
@@ -806,6 +1155,7 @@ function WorkspacePanel({
   workspaceRef: React.RefObject<HTMLDivElement | null>;
   activeDragId: string | null;
   dragPosition: { x: number; y: number } | null;
+  onUpdateBlock?: (id: string, updates: Partial<Block>) => void;
 }) {
   const { setNodeRef } = useDroppable({
     id: "workspace",
@@ -909,6 +1259,17 @@ function WorkspacePanel({
               displayPosition = computeRenderedPosition(block, program);
             }
             
+            // Skip rendering blocks that are nested inside REPEAT blocks (check children property)
+            const isNestedInRepeat = program.some(b => 
+              b.type === BlockType.REPEAT && 
+              b.children && 
+              b.children.some(child => child.id === block.id)
+            );
+            
+            if (isNestedInRepeat) {
+              return null; // Don't render nested blocks here, they're rendered inside the REPEAT block
+            }
+            
             return (
               <DraggableBlock
                 key={block.id}
@@ -916,6 +1277,8 @@ function WorkspacePanel({
                 highlight={block.id === highlightedBlockId}
                 isDragging={block.id === activeDragId}
                 onDragPositionUpdate={handleDragPositionUpdate}
+                onUpdateBlock={onUpdateBlock}
+                allBlocksForNesting={program}
               />
             );
           })
@@ -1006,6 +1369,19 @@ export default function LoopyPage() {
     setProgram(prev => [...prev, newBlock]);
   }, [runStatus]);
 
+  const handleUpdateBlock = useCallback((id: string, updates: Partial<Block>) => {
+    if (runStatus === "running") return;
+    setProgram(prev => prev.map(block => {
+      if (block.id === id) {
+        if (block.type === BlockType.REPEAT && 'count' in updates) {
+          return { ...block, count: updates.count as number } as Block;
+        }
+        return { ...block, ...updates } as Block;
+      }
+      return block;
+    }));
+  }, [runStatus]);
+
   const handleReset = useCallback(() => {
     if (runStatus === "running") return;
     setProgram(initializeWorkspace());
@@ -1063,7 +1439,7 @@ export default function LoopyPage() {
     }
 
     setRunStatus("running");
-    const steps = expandProgram(attachedBlocks);
+    const steps = expandProgram(attachedBlocks, program);
     let currentPos = level.start;
     let currentHeading: Heading = (level.initialHeading ?? 90) as Heading; // Use level's initialHeading or default to 90° (right)
     setLoopyPos(currentPos);
@@ -1368,6 +1744,7 @@ export default function LoopyPage() {
                 workspaceRef={workspaceRef}
                 activeDragId={activeBlockId}
                 dragPosition={dragPosition}
+                onUpdateBlock={handleUpdateBlock}
               />
             </div>
           </div>
