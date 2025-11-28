@@ -1,6 +1,13 @@
 export type TileType = "empty" | "wall" | "start" | "goal";
 
 export enum BlockType {
+  // New heading-based movement system
+  POINT_UP = "POINT_UP",           // Set heading to 0°
+  POINT_RIGHT = "POINT_RIGHT",     // Set heading to 90°
+  POINT_DOWN = "POINT_DOWN",       // Set heading to 180°
+  POINT_LEFT = "POINT_LEFT",       // Set heading to 270°
+  MOVE_FORWARD = "MOVE_FORWARD",   // Move one tile in current heading
+  // Legacy movement blocks (deprecated, kept for backward compatibility)
   MOVE_UP = "MOVE_UP",
   MOVE_DOWN = "MOVE_DOWN",
   MOVE_LEFT = "MOVE_LEFT",
@@ -28,6 +35,11 @@ export type BaseBlock = {
 
 export type MoveBlock = BaseBlock & {
   type:
+    | BlockType.POINT_UP
+    | BlockType.POINT_RIGHT
+    | BlockType.POINT_DOWN
+    | BlockType.POINT_LEFT
+    | BlockType.MOVE_FORWARD
     | BlockType.MOVE_UP
     | BlockType.MOVE_DOWN
     | BlockType.MOVE_LEFT
@@ -58,6 +70,7 @@ export type LevelConfig = {
   optimalBlockCount: number;
   instructions: string;
   hint: string;
+  initialHeading?: number; // Optional initial heading in degrees (0, 90, 180, 270). Defaults to 90° (right)
 };
 
 // Helper to create grid from 2D array representation
@@ -85,10 +98,11 @@ export const LEVELS: LevelConfig[] = [
     ]),
     start: { x: 0, y: 1 },
     goal: { x: 4, y: 1 },
-    allowedBlocks: [BlockType.MOVE_RIGHT],
-    optimalBlockCount: 4,
-    instructions: "Help Loopy reach the apple! Use the Move Right block to make Loopy crawl to the goal.",
-    hint: "You'll need 4 Move Right blocks to reach the apple.",
+    allowedBlocks: [BlockType.POINT_RIGHT, BlockType.MOVE_FORWARD],
+    optimalBlockCount: 5, // 1 direction block + 4 move forward blocks
+    instructions: "Help Loopy reach the apple! First point Loopy right (90°), then use Move Forward blocks to make Loopy crawl to the goal.",
+    hint: "You'll need 1 Point Right (90°) block and 4 Move Forward blocks to reach the apple.",
+    initialHeading: 270, // Start facing left (270°)
   },
   {
     id: 2,
@@ -96,17 +110,17 @@ export const LEVELS: LevelConfig[] = [
     width: 5,
     height: 4,
     grid: createGrid(5, 4, [
-      ["empty", "empty", "empty", "empty", "goal"],
       ["empty", "empty", "empty", "empty", "empty"],
+      ["empty", "empty", "goal", "empty", "empty"],
       ["empty", "empty", "empty", "empty", "empty"],
       ["start", "empty", "empty", "empty", "empty"],
     ]),
     start: { x: 0, y: 3 },
-    goal: { x: 4, y: 0 },
-    allowedBlocks: [BlockType.MOVE_RIGHT, BlockType.MOVE_UP],
-    optimalBlockCount: 4,
-    instructions: "Loopy needs to go right and then up to reach the apple. Try using Move Right and Move Up blocks!",
-    hint: "You'll need to move right 4 times, then up 3 times. Or move up first, then right!",
+    goal: { x: 2, y: 1 }, // Moved to middle of board
+    allowedBlocks: [BlockType.POINT_UP, BlockType.POINT_RIGHT, BlockType.MOVE_FORWARD],
+    optimalBlockCount: 6, // 2 direction blocks + 4 move forward blocks (2 right + 2 up)
+    instructions: "Loopy needs to go right (90°) and then up (0°) to reach the apple. Use Point Right (90°) and Point Up (0°) blocks to set the direction, then Move Forward!",
+    hint: "Point Right (90°), then move forward 2 times. Then Point Up (0°), then move forward 2 times.",
   },
   {
     id: 3,
@@ -121,10 +135,10 @@ export const LEVELS: LevelConfig[] = [
     ]),
     start: { x: 0, y: 3 },
     goal: { x: 5, y: 0 },
-    allowedBlocks: [BlockType.MOVE_RIGHT, BlockType.MOVE_UP, BlockType.MOVE_LEFT, BlockType.MOVE_DOWN],
-    optimalBlockCount: 6,
-    instructions: "There's a wall blocking the direct path! Find a way around it to reach the apple.",
-    hint: "Go up first, then right around the wall, then up again to reach the goal.",
+    allowedBlocks: [BlockType.POINT_UP, BlockType.POINT_RIGHT, BlockType.POINT_DOWN, BlockType.POINT_LEFT, BlockType.MOVE_FORWARD],
+    optimalBlockCount: 8, // 3 direction blocks + 5 move forward blocks
+    instructions: "There's a wall blocking the direct path! Use Point Up (0°), Point Right (90°), Point Down (180°), and Point Left (270°) to set Loopy's heading, then Move Forward to navigate around the wall.",
+    hint: "Point Up (0°), move forward 3 times. Then Point Right (90°), move forward 3 times. Then Point Up (0°), move forward 2 times.",
   },
 ];
 

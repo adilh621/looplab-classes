@@ -22,6 +22,44 @@ type DragData =
   | { source: "palette"; blockType: BlockType }
   | { source: "workspace"; blockId: string };
 
+// Heading system: 0° = up, 90° = right, 180° = down, 270° = left
+// This convention maps degrees to standard compass directions
+type Heading = 0 | 90 | 180 | 270;
+
+// Convert heading (degrees) to (dx, dy) movement vector
+// Convention: 0° = up (y decreases), 90° = right (x increases), 180° = down (y increases), 270° = left (x decreases)
+function headingToDelta(heading: Heading): { dx: number; dy: number } {
+  switch (heading) {
+    case 0: return { dx: 0, dy: -1 };   // Up
+    case 90: return { dx: 1, dy: 0 };   // Right
+    case 180: return { dx: 0, dy: 1 };  // Down
+    case 270: return { dx: -1, dy: 0 }; // Left
+    default: return { dx: 0, dy: 0 };
+  }
+}
+
+// Convert heading to direction string for sprite rendering
+function headingToDirection(heading: Heading): "left" | "right" | "up" | "down" {
+  switch (heading) {
+    case 0: return "up";
+    case 90: return "right";
+    case 180: return "down";
+    case 270: return "left";
+    default: return "right";
+  }
+}
+
+// Get heading from a POINT_* block type
+function getHeadingFromBlockType(blockType: BlockType): Heading | null {
+  switch (blockType) {
+    case BlockType.POINT_UP: return 0;
+    case BlockType.POINT_RIGHT: return 90;
+    case BlockType.POINT_DOWN: return 180;
+    case BlockType.POINT_LEFT: return 270;
+    default: return null;
+  }
+}
+
 // Helper functions
 function expandProgram(blocks: Block[]): BlockType[] {
   const result: BlockType[] = [];
@@ -37,8 +75,13 @@ function expandProgram(blocks: Block[]): BlockType[] {
   return result;
 }
 
-// Removed unused functions: buildChains, expandChainsToMoves
+// Apply movement based on heading (for MOVE_FORWARD)
+function applyMoveForward(pos: { x: number; y: number }, heading: Heading): { x: number; y: number } {
+  const { dx, dy } = headingToDelta(heading);
+  return { x: pos.x + dx, y: pos.y + dy };
+}
 
+// Legacy applyMove for backward compatibility (deprecated)
 function applyMove(pos: { x: number; y: number }, move: BlockType): { x: number; y: number } {
   switch (move) {
     case BlockType.MOVE_UP: return { x: pos.x, y: pos.y - 1 };
@@ -67,9 +110,14 @@ function getSpritePath(direction: "left" | "right" | "up" | "down"): string {
     case "left": return "/game_assets/left_loopy.png";
     case "right": return "/game_assets/right_loopy.png";
     case "up": return "/game_assets/front_loopy.png";
-    case "down": return "/game_assets/front_loopy.png";
+    case "down": return "/game_assets/front_loopy.png"; // Will be flipped vertically
     default: return "/game_assets/right_loopy.png";
   }
+}
+
+// Check if sprite needs vertical flip (for down direction)
+function needsVerticalFlip(direction: "left" | "right" | "up" | "down"): boolean {
+  return direction === "down";
 }
 
 function calculateStars(blockCount: number, optimalCount: number): number {
@@ -80,6 +128,16 @@ function calculateStars(blockCount: number, optimalCount: number): number {
 
 function labelForBlockType(t: BlockType): string {
   switch (t) {
+    case BlockType.POINT_UP:
+      return "Point Up (0°)";
+    case BlockType.POINT_RIGHT:
+      return "Point Right (90°)";
+    case BlockType.POINT_DOWN:
+      return "Point Down (180°)";
+    case BlockType.POINT_LEFT:
+      return "Point Left (270°)";
+    case BlockType.MOVE_FORWARD:
+      return "Move Forward";
     case BlockType.MOVE_UP:
       return "Move Up";
     case BlockType.MOVE_DOWN:
@@ -242,6 +300,11 @@ function createBlockInstance(blockType: BlockType, position: BlockPosition): Blo
   };
 
   if (
+    blockType === BlockType.POINT_UP ||
+    blockType === BlockType.POINT_RIGHT ||
+    blockType === BlockType.POINT_DOWN ||
+    blockType === BlockType.POINT_LEFT ||
+    blockType === BlockType.MOVE_FORWARD ||
     blockType === BlockType.MOVE_UP ||
     blockType === BlockType.MOVE_DOWN ||
     blockType === BlockType.MOVE_LEFT ||
@@ -421,11 +484,11 @@ function InstructionsPanel({
 function GameBoard({
   level,
   loopyPos,
-  lastDirection,
+  heading,
 }: {
   level: LevelConfig;
   loopyPos: { x: number; y: number };
-  lastDirection: "left" | "right" | "up" | "down";
+  heading: Heading;
 }) {
   const boardRef = useRef<HTMLDivElement | null>(null);
   const [tileSize, setTileSize] = useState<number>(64);
@@ -457,6 +520,11 @@ function GameBoard({
   }, [level.width, level.height]);
 
   const appleSize = Math.floor(tileSize * 0.6); // roughly 40% smaller
+
+  // Compute sprite properties based on heading
+  const direction = headingToDirection(heading);
+  const spritePath = getSpritePath(direction);
+  const flipVertical = needsVerticalFlip(direction);
 
   return (
     <div
@@ -522,11 +590,14 @@ function GameBoard({
           }}
         >
           <Image
-            src={getSpritePath(lastDirection)}
+            src={spritePath}
             alt="Loopy"
             width={tileSize}
             height={tileSize}
-            style={{ imageRendering: "pixelated" }}
+            style={{
+              imageRendering: "pixelated",
+              transform: flipVertical ? "scaleY(-1)" : undefined,
+            }}
           />
         </div>
       </div>
@@ -861,7 +932,7 @@ export default function LoopyPage() {
   
   const [program, setProgram] = useState<Block[]>([]);
   const [loopyPos, setLoopyPos] = useState(level.start);
-  const [lastDirection, setLastDirection] = useState<"left" | "right" | "up" | "down">("right");
+  const [heading, setHeading] = useState<Heading>((level.initialHeading ?? 90) as Heading); // Use level's initialHeading or default to 90° (right)
   const [runStatus, setRunStatus] = useState<"idle" | "running" | "success" | "crash">("idle");
   
   // Drag & drop state
@@ -908,7 +979,7 @@ export default function LoopyPage() {
     const newLevel = getLevelById(currentLevelId);
     setProgram(initializeWorkspace());
     setLoopyPos(newLevel.start);
-    setLastDirection("right");
+    setHeading((newLevel.initialHeading ?? 90) as Heading); // Use level's initialHeading or default to 90° (right)
     setRunStatus("idle");
   }, [currentLevelId, initializeWorkspace]);
 
@@ -939,9 +1010,9 @@ export default function LoopyPage() {
     if (runStatus === "running") return;
     setProgram(initializeWorkspace());
     setLoopyPos(level.start);
-    setLastDirection("right");
+    setHeading((level.initialHeading ?? 90) as Heading); // Use level's initialHeading or default to 90° (right)
     setRunStatus("idle");
-  }, [level.start, runStatus, initializeWorkspace]);
+  }, [level.start, level.initialHeading, runStatus, initializeWorkspace]);
 
   const handleResetGame = useCallback(() => {
     // Clear localStorage
@@ -958,7 +1029,7 @@ export default function LoopyPage() {
     setProgram([]);
     setLoopyPos(firstLevel.start);
     setRunStatus("idle");
-    setLastDirection("right");
+    setHeading((firstLevel.initialHeading ?? 90) as Heading); // Use level's initialHeading or default to 90° (right)
     setProgram(initializeWorkspace());
   }, [initializeWorkspace]);
 
@@ -992,29 +1063,67 @@ export default function LoopyPage() {
     }
 
     setRunStatus("running");
-    const moves = expandProgram(attachedBlocks);
+    const steps = expandProgram(attachedBlocks);
     let currentPos = level.start;
+    let currentHeading: Heading = (level.initialHeading ?? 90) as Heading; // Use level's initialHeading or default to 90° (right)
     setLoopyPos(currentPos);
+    setHeading(currentHeading);
 
-    for (let i = 0; i < moves.length; i++) {
+    for (let i = 0; i < steps.length; i++) {
       await sleep(300);
-      const move = moves[i];
-      const newPos = applyMove(currentPos, move);
+      const step = steps[i];
 
-      // Determine direction for sprite
-      if (move === BlockType.MOVE_LEFT) setLastDirection("left");
-      else if (move === BlockType.MOVE_RIGHT) setLastDirection("right");
-      else if (move === BlockType.MOVE_UP) setLastDirection("up");
-      else if (move === BlockType.MOVE_DOWN) setLastDirection("down");
-
-      if (isOutOfBounds(newPos, level) || isWall(newPos, level)) {
-        setLoopyPos(newPos);
-        setRunStatus("crash");
-        return;
+      // Handle direction blocks (POINT_*)
+      const newHeading = getHeadingFromBlockType(step);
+      if (newHeading !== null) {
+        currentHeading = newHeading;
+        setHeading(currentHeading);
+        // Continue to next step - direction blocks don't move Loopy, just change heading
+        continue;
       }
 
-      currentPos = newPos;
-      setLoopyPos(currentPos);
+      // Handle MOVE_FORWARD
+      if (step === BlockType.MOVE_FORWARD) {
+        const newPos = applyMoveForward(currentPos, currentHeading);
+
+        // Check for crashes (out of bounds or wall)
+        if (isOutOfBounds(newPos, level) || isWall(newPos, level)) {
+          setLoopyPos(newPos);
+          setRunStatus("crash");
+          return;
+        }
+
+        currentPos = newPos;
+        setLoopyPos(currentPos);
+        continue;
+      }
+
+      // Legacy movement blocks (for backward compatibility)
+      if (
+        step === BlockType.MOVE_UP ||
+        step === BlockType.MOVE_DOWN ||
+        step === BlockType.MOVE_LEFT ||
+        step === BlockType.MOVE_RIGHT
+      ) {
+        const newPos = applyMove(currentPos, step);
+        
+        // Update heading based on legacy move (for sprite orientation)
+        if (step === BlockType.MOVE_LEFT) currentHeading = 270;
+        else if (step === BlockType.MOVE_RIGHT) currentHeading = 90;
+        else if (step === BlockType.MOVE_UP) currentHeading = 0;
+        else if (step === BlockType.MOVE_DOWN) currentHeading = 180;
+        setHeading(currentHeading);
+
+        if (isOutOfBounds(newPos, level) || isWall(newPos, level)) {
+          setLoopyPos(newPos);
+          setRunStatus("crash");
+          return;
+        }
+
+        currentPos = newPos;
+        setLoopyPos(currentPos);
+        continue;
+      }
     }
 
     // Check if reached goal
@@ -1245,7 +1354,7 @@ export default function LoopyPage() {
               <InstructionsPanel level={level} runStatus={runStatus} />
             </div>
             <div className="h-full min-h-[250px] md:min-h-0 flex">
-              <GameBoard level={level} loopyPos={loopyPos} lastDirection={lastDirection} />
+              <GameBoard level={level} loopyPos={loopyPos} heading={heading} />
             </div>
             <div className="md:row-span-1">
               <BlockPalette level={level} onAddBlock={handleAddBlock} />
