@@ -6,21 +6,45 @@ export enum BlockType {
   MOVE_LEFT = "MOVE_LEFT",
   MOVE_RIGHT = "MOVE_RIGHT",
   REPEAT = "REPEAT",
+  WHEN_RUN_CLICKED = "WHEN_RUN_CLICKED",
 }
 
-export type MoveBlock = {
-  id: string;
-  type: BlockType.MOVE_UP | BlockType.MOVE_DOWN | BlockType.MOVE_LEFT | BlockType.MOVE_RIGHT;
+export type BlockPosition = {
+  x: number; // pixels inside workspace
+  y: number;
 };
 
-export type RepeatBlock = {
+export type BlockConnection = {
+  nextBlockId: string | null;  // the block snapped directly below this one
+  prevBlockId: string | null;  // the block snapped directly above
+};
+
+export type BaseBlock = {
   id: string;
+  type: BlockType;
+  position: BlockPosition;
+  connection: BlockConnection;
+};
+
+export type MoveBlock = BaseBlock & {
+  type:
+    | BlockType.MOVE_UP
+    | BlockType.MOVE_DOWN
+    | BlockType.MOVE_LEFT
+    | BlockType.MOVE_RIGHT;
+};
+
+export type RepeatBlock = BaseBlock & {
   type: BlockType.REPEAT;
   count: number;
-  children: Block[];
+  children: Block[]; // keep for future nested logic; we don't rely on it yet
 };
 
-export type Block = MoveBlock | RepeatBlock;
+export type WhenRunClickedBlock = BaseBlock & {
+  type: BlockType.WHEN_RUN_CLICKED;
+};
+
+export type Block = MoveBlock | RepeatBlock | WhenRunClickedBlock;
 
 export type LevelConfig = {
   id: number;
