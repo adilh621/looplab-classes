@@ -37,3 +37,13 @@ export function saveProgress(progress: Progress): void {
   }
 }
 
+export function clearProgress(): void {
+  if (typeof window === "undefined") return;
+  
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+

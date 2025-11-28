@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { LEVELS, getLevelById, BlockType, type Block, type LevelConfig } from "@/loopy/levels";
-import { loadProgress, saveProgress, type Progress } from "@/loopy/progress";
+import { loadProgress, saveProgress, clearProgress, type Progress } from "@/loopy/progress";
 
 // Helper functions
 function expandProgram(blocks: Block[]): BlockType[] {
@@ -148,6 +148,8 @@ function GameBoard({
     return () => observer.disconnect();
   }, [level.width, level.height]);
 
+  const appleSize = Math.floor(tileSize * 0.6); // roughly 40% smaller
+
   return (
     <div
       ref={boardRef}
@@ -189,14 +191,15 @@ function GameBoard({
                 />
               )}
               {tile === "goal" && (
-                <Image
-                  src="/game_assets/apple.png"
-                  alt="goal"
-                  width={tileSize}
-                  height={tileSize}
-                  className="absolute inset-0"
-                  style={{ imageRendering: "pixelated" }}
-                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Image
+                    src="/game_assets/apple.png"
+                    alt="goal"
+                    width={appleSize}
+                    height={appleSize}
+                    style={{ imageRendering: "pixelated", marginTop: -50 }}
+                  />
+                </div>
               )}
             </div>
           );
@@ -390,6 +393,23 @@ export default function LoopyPage() {
     setRunStatus("idle");
   }, [level.start, runStatus]);
 
+  const handleResetGame = useCallback(() => {
+    // Clear localStorage
+    clearProgress();
+
+    // Reset progress state
+    const defaultProgress = { unlockedLevels: [1], bestStars: {} };
+    setProgress(defaultProgress);
+
+    // Reset to level 1
+    const firstLevel = getLevelById(1);
+    setCurrentLevelId(1);
+    setProgram([]);
+    setLoopyPos(firstLevel.start);
+    setRunStatus("idle");
+    setLastDirection("right");
+  }, []);
+
   const handleRunProgram = useCallback(async () => {
     if (runStatus === "running" || program.length === 0) return;
 
@@ -478,6 +498,12 @@ export default function LoopyPage() {
               )}
             </button>
           ))}
+          <button
+            onClick={handleResetGame}
+            className="ml-4 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
+            Reset Game
+          </button>
         </div>
 
         {/* Main game grid */}
