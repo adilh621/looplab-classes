@@ -125,21 +125,55 @@ export const LEVELS: LevelConfig[] = [
   {
     id: 3,
     name: "Around the Rock",
-    width: 6,
-    height: 4,
-    grid: createGrid(6, 4, [
-      ["empty", "empty", "empty", "empty", "empty", "goal"],
-      ["empty", "empty", "wall", "empty", "empty", "empty"],
-      ["empty", "empty", "wall", "empty", "empty", "empty"],
-      ["start", "empty", "empty", "empty", "empty", "empty"],
+    width: 5,
+    height: 3,
+    grid: createGrid(5, 3, [
+      ["empty", "empty", "wall", "empty", "empty"],
+      ["start", "empty", "wall", "empty", "goal"],
+      ["empty", "empty", "empty", "empty", "empty"],
     ]),
-    start: { x: 0, y: 3 },
-    goal: { x: 5, y: 0 },
+    start: { x: 0, y: 1 },
+    goal: { x: 4, y: 1 },
     allowedBlocks: [BlockType.POINT_UP, BlockType.POINT_RIGHT, BlockType.POINT_DOWN, BlockType.POINT_LEFT, BlockType.MOVE_FORWARD],
     optimalBlockCount: 8, // 3 direction blocks + 5 move forward blocks
     instructions: "There's a wall blocking the direct path! Use Point Up (0°), Point Right (90°), Point Down (180°), and Point Left (270°) to set Loopy's heading, then Move Forward to navigate around the wall.",
     hint: "Point Up (0°), move forward 3 times. Then Point Right (90°), move forward 3 times. Then Point Up (0°), move forward 2 times.",
   },
+  {
+    id: 4,
+    name: "Loop Around the Wall",
+    width: 5,
+    height: 3,
+    grid: createGrid(5, 3, [
+      ["empty", "empty", "wall",  "empty", "empty"],
+      ["start", "empty", "wall",  "empty", "goal"],
+      ["empty", "empty", "empty", "empty", "empty"],
+    ]),
+    start: { x: 0, y: 1 },
+    goal: { x: 4, y: 1 },
+  
+    // Use repeat + all 4 direction blocks + move forward
+    allowedBlocks: [
+      BlockType.POINT_UP,
+      BlockType.POINT_RIGHT,
+      BlockType.POINT_DOWN,
+      BlockType.POINT_LEFT,
+      BlockType.REPEAT,
+      BlockType.MOVE_FORWARD,
+    ],
+  
+    // Example optimal: 5 direction blocks + 1 repeat + 4 move forward
+    optimalBlockCount: 10,
+  
+    instructions:
+      "There's a wall blocking the direct path! Use Point Up (0°), Point Right (90°), Point Down (180°), and Point Left (270°) to steer Loopy around the wall. Use a Repeat block instead of stacking lots of Move Forward blocks.",
+  
+    hint:
+      "One way: Point Right (90°), Move Forward to get next to the wall. " +
+      "Then Point Down (180°), Move Forward to the bottom row. " +
+      "Point Right (90°) and use Repeat 2 { Move Forward } to go around the wall. " +
+      "Then Point Up (0°), Move Forward, and finally Point Right (90°), Move Forward to reach the goal.",
+  }  
 ];
 
 export function getLevelById(id: number): LevelConfig {
