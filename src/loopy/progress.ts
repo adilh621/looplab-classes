@@ -53,4 +53,3 @@ export function clearProgress(): void {
     // ignore
   }
 }
-

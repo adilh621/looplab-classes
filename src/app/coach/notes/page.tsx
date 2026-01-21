@@ -3,8 +3,10 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { getApiBase } from "@/lib/api";
 import type { Me } from "@/lib/auth";
+import { GlassLayout, glassCard, buttonPrimary, buttonSecondary, inputStyle } from "../../_components/auth/GlassLayout";
 
 const COACH_EMAIL = "adilh621+looplab@gmail.com";
 
@@ -82,17 +84,17 @@ function formatRange(startIso?: string | null, endIso?: string | null) {
 // Session row component for the session list
 function SessionRow({ session, onPickId }: { session: Booking; onPickId: (id: number) => void }) {
   return (
-    <div className="flex items-center justify-between gap-3 p-2 border rounded-lg hover:bg-gray-50">
+    <div className="flex items-center justify-between gap-3 p-3 bg-white/6 border border-white/10 rounded-2xl hover:bg-white/8 transition-colors duration-150">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-medium">ID: {session.id}</span>
+          <span className="font-mono text-sm font-medium text-white/90">ID: {session.id}</span>
           {session.status && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 border border-white/15 text-white/70">
               {session.status}
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-600 mt-0.5">
+        <p className="text-xs text-white/70 mt-0.5">
           {formatRange(session.start_utc, session.end_utc) || "No date"}
           {session.location_type && ` • ${session.location_type.replace("_", " ")}`}
           {session.parent_name && ` • ${session.parent_name}`}
@@ -107,7 +109,7 @@ function SessionRow({ session, onPickId }: { session: Booking; onPickId: (id: nu
             navigator.clipboard.writeText(String(session.id)).catch(() => {});
           }
         }}
-        className="text-xs font-medium text-blue-600 hover:underline px-2 py-1"
+        className="px-3 py-1.5 rounded-full bg-white text-gray-900 text-sm font-medium hover:scale-[1.02] transition-transform duration-200"
       >
         Use ID
       </button>
@@ -148,18 +150,18 @@ function CoachSessionList({ onSelectBookingId }: { onSelectBookingId: (id: numbe
   }, [backend]);
 
   return (
-    <section className="mt-6 bg-white border rounded-xl p-4">
-      <h2 className="text-lg font-semibold mb-4">Your Sessions</h2>
-      {loading && <p className="mt-2 text-sm text-gray-500">Loading sessions…</p>}
-      {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+    <section className={`${glassCard} bg-white/8`}>
+      <h2 className="text-lg font-semibold mb-4 text-white/90">Your Sessions</h2>
+      {loading && <p className="mt-2 text-sm text-white/60">Loading sessions…</p>}
+      {error && <p className="mt-2 text-sm text-red-300">{error}</p>}
 
       {!loading && !error && (
         <>
           <div className="mt-3">
-            <h3 className="text-sm font-medium text-gray-700">Upcoming</h3>
+            <h3 className="text-sm font-medium text-white/80">Upcoming</h3>
             <div className="mt-2 space-y-2">
               {upcomingSessions.length === 0 && (
-                <p className="text-sm text-gray-500">No upcoming sessions.</p>
+                <p className="text-sm text-white/60">No upcoming sessions.</p>
               )}
               {upcomingSessions.map((session) => (
                 <SessionRow key={session.id} session={session} onPickId={onSelectBookingId} />
@@ -168,10 +170,10 @@ function CoachSessionList({ onSelectBookingId }: { onSelectBookingId: (id: numbe
           </div>
 
           <div className="mt-4">
-            <h3 className="text-sm font-medium text-gray-700">Past</h3>
+            <h3 className="text-sm font-medium text-white/80">Past</h3>
             <div className="mt-2 space-y-2">
               {pastSessions.length === 0 && (
-                <p className="text-sm text-gray-500">No past sessions.</p>
+                <p className="text-sm text-white/60">No past sessions.</p>
               )}
               {pastSessions.map((session) => (
                 <SessionRow key={session.id} session={session} onPickId={onSelectBookingId} />
@@ -189,9 +191,9 @@ export default function CoachNotesPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen flex items-center justify-center p-6">
-          <div className="w-full max-w-lg border rounded-2xl p-6 shadow-sm text-center">Loading…</div>
-        </main>
+        <GlassLayout>
+          <div className={`${glassCard} text-center text-white/80`}>Loading…</div>
+        </GlassLayout>
       }
     >
       <NotesClient />
@@ -384,45 +386,50 @@ function NotesClient() {
 
   if (loadingMe) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-lg border rounded-2xl p-6 shadow-sm text-center">Loading…</div>
-      </main>
+      <GlassLayout>
+        <div className={`${glassCard} text-center text-white/80`}>Loading…</div>
+      </GlassLayout>
     );
   }
 
   return (
-    <main className="min-h-screen p-6 flex flex-col items-center gap-6 bg-gray-50">
-      <div className="w-full max-w-6xl">
+    <GlassLayout maxWidth="5xl">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-semibold">Coach Notes</h1>
-          <p className="text-gray-600 text-sm">Visible to Coach Adil only. Use a Session Booking ID to view/add notes.</p>
+        <div className={glassCard}>
+          <div className="mb-4">
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Coach Notes</h1>
+            <p className="text-white/70 text-sm">Visible to Coach Adil only. Use a Session Booking ID to view/add notes.</p>
+          </div>
+          <Link href="/dashboard" className={buttonSecondary}>
+            ← Back to dashboard
+          </Link>
         </div>
 
         {/* Workflow explanation */}
-        <div className="mb-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
-          <p className="font-semibold mb-1">How this page works</p>
-          <p className="mb-1">
-            Each note is attached to a specific <span className="font-mono">session_booking_id</span>, which matches the
+        <div className={`${glassCard} bg-white/8`}>
+          <p className="font-semibold mb-2 text-white/90">How this page works</p>
+          <p className="mb-2 text-white/70 text-sm">
+            Each note is attached to a specific <span className="font-mono text-white/90">session_booking_id</span>, which matches the
             session ID shown on the parent dashboard.
           </p>
-          <p className="mb-1">
+          <p className="mb-2 text-white/70 text-sm">
             Workflow:
           </p>
-          <ul className="list-disc pl-5 space-y-1">
+          <ul className="list-disc pl-5 space-y-1 text-white/70 text-sm">
             <li>Parent books a session via Calendly → it appears on their dashboard.</li>
-            <li>You copy the <span className="font-mono">Session ID</span> from the dashboard.</li>
-            <li>Paste that ID here as the <span className="font-mono">session_booking_id</span> to create notes.</li>
+            <li>You copy the <span className="font-mono text-white/90">Session ID</span> from the dashboard.</li>
+            <li>Paste that ID here as the <span className="font-mono text-white/90">session_booking_id</span> to create notes.</li>
             <li>Published notes with parent visibility will appear on the parent side under that same session.</li>
           </ul>
         </div>
 
         {/* Booking chooser */}
-        <form onSubmit={handleLoadClick} className="flex flex-wrap items-end gap-2 bg-white border p-4 rounded-xl">
+        <form onSubmit={handleLoadClick} className={`${glassCard} flex flex-wrap items-end gap-2`}>
           <label className="block text-sm">
-            <span className="text-gray-600">Booking ID</span>
+            <span className="text-white/80 mb-2 block">Booking ID</span>
             <input
-              className="mt-1 w-[220px] rounded-lg border p-2"
+              className={`${inputStyle} w-[220px]`}
               inputMode="numeric"
               pattern="[0-9]*"
               value={bookingId ?? ""}
@@ -430,32 +437,32 @@ function NotesClient() {
               placeholder="e.g. 123"
             />
           </label>
-          <button type="submit" className="px-3 py-2 rounded-lg bg-black text-white">Load</button>
+          <button type="submit" className={buttonPrimary}>Load</button>
         </form>
 
         {/* Session list */}
         <CoachSessionList onSelectBookingId={handleSelectBookingId} />
 
         {typeof bookingId === "number" && (
-          <div className="mt-6 grid gap-6">
+          <div className="space-y-6">
             {/* Session Meta */}
-            <section className="bg-white border rounded-xl p-4">
+            <section className={`${glassCard} bg-white/8`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="font-medium">Session</h2>
-                  <p className="text-sm text-gray-600">
+                  <h2 className="font-medium text-white/90">Session</h2>
+                  <p className="text-sm text-white/70">
                     Booking #{bookingId} {bookingMeta?.start_utc ? `• ${formatRange(bookingMeta.start_utc, bookingMeta.end_utc)}` : ""}
                   </p>
                 </div>
-                {notesLoading && <span className="text-xs text-gray-500">Loading…</span>}
+                {notesLoading && <span className="text-xs text-white/60">Loading…</span>}
               </div>
             </section>
 
             {/* Two-column layout on desktop: Composer (left) • Existing notes (right) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Composer */}
-              <section className="bg-white border rounded-xl p-4">
-                <h2 className="font-medium mb-3">New note</h2>
+              <section className={`${glassCard} bg-white/8`}>
+                <h2 className="font-medium mb-3 text-white/90">New note</h2>
                 <form
                   className="space-y-3"
                   onSubmit={(e) => {
@@ -464,18 +471,18 @@ function NotesClient() {
                   }}
                 >
                   <label className="block text-sm">
-                    <span className="text-gray-600">Title (optional)</span>
+                    <span className="text-white/80 mb-2 block">Title (optional)</span>
                     <input
-                      className="mt-1 w-full rounded-lg border p-2"
+                      className={inputStyle}
                       value={noteTitle}
                       onChange={(e) => setNoteTitle(e.target.value)}
                     />
                   </label>
 
                   <label className="block text-sm">
-                    <span className="text-gray-600">Content (Markdown)</span>
+                    <span className="text-white/80 mb-2 block">Content (Markdown)</span>
                     <textarea
-                      className="mt-1 w-full rounded-lg border p-2 min-h-[200px]"
+                      className={`${inputStyle} min-h-[200px] resize-none`}
                       value={noteContent}
                       onChange={(e) => setNoteContent(e.target.value)}
                       placeholder={`For today's session...\n\nProgress:\n- \n\nWhat we did:\n- \n\nNext steps:\n- `}
@@ -484,77 +491,78 @@ function NotesClient() {
 
                   <div className="grid sm:grid-cols-3 gap-3">
                     <label className="block text-sm">
-                      <span className="text-gray-600">Visibility</span>
+                      <span className="text-white/80 mb-2 block">Visibility</span>
                       <select
-                        className="mt-1 w-full rounded-lg border p-2"
+                        className={inputStyle}
                         value={noteVisibility}
                         onChange={(e) => setNoteVisibility(e.target.value as "private" | "parent" | "parent_and_student")}
                       >
-                        <option value="private">Private (staff only)</option>
-                        <option value="parent">Parent</option>
-                        <option value="parent_and_student">Parent & Student</option>
+                        <option value="private" className="bg-gray-800">Private (staff only)</option>
+                        <option value="parent" className="bg-gray-800">Parent</option>
+                        <option value="parent_and_student" className="bg-gray-800">Parent & Student</option>
                       </select>
                     </label>
 
                     <label className="block text-sm">
-                      <span className="text-gray-600">Status</span>
+                      <span className="text-white/80 mb-2 block">Status</span>
                       <select
-                        className="mt-1 w-full rounded-lg border p-2"
+                        className={inputStyle}
                         value={noteStatus}
                         onChange={(e) => setNoteStatus(e.target.value as "draft" | "published")}
                       >
-                        <option value="draft">Draft</option>
-                        <option value="published">Published</option>
+                        <option value="draft" className="bg-gray-800">Draft</option>
+                        <option value="published" className="bg-gray-800">Published</option>
                       </select>
                     </label>
 
-                    <label className="flex items-center gap-2 text-sm mt-6 sm:mt-[30px]">
+                    <label className="flex items-center gap-2 text-sm mt-6 sm:mt-[30px] text-white/90">
                       <input
                         type="checkbox"
                         checked={noteEmailOnPublish}
                         onChange={(e) => setNoteEmailOnPublish(e.target.checked)}
                         disabled={noteStatus !== "published"}
+                        className="w-4 h-4 rounded border-white/20 bg-white/5 text-cyan-400 focus:ring-cyan-400/50"
                       />
                       Email parent on publish
                     </label>
                   </div>
 
                   <div className="flex justify-end gap-2">
-                    <button type="submit" className="px-3 py-2 rounded-lg bg-black text-white">Save note</button>
+                    <button type="submit" className={buttonPrimary}>Save note</button>
                   </div>
                 </form>
               </section>
 
               {/* Existing notes */}
-              <section className="bg-white border rounded-xl p-4">
+              <section className={`${glassCard} bg-white/8`}>
                 <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-medium">Existing notes</h2>
+                  <h2 className="font-medium text-white/90">Existing notes</h2>
                 </div>
 
                 {notesError ? (
-                  <p className="text-sm text-red-600">{notesError}</p>
+                  <p className="text-sm text-red-300">{notesError}</p>
                 ) : notes.length === 0 ? (
-                  <p className="text-sm text-gray-500">No notes yet.</p>
+                  <p className="text-sm text-white/60">No notes yet.</p>
                 ) : (
                   <ul className="space-y-3">
                     {notes.map(n => (
-                      <li key={n.id} className="border rounded-lg p-3">
+                      <li key={n.id} className="bg-white/6 border border-white/10 rounded-2xl p-4 hover:bg-white/8 transition-colors duration-150">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className="font-medium truncate">{n.title || "(Untitled note)"}</p>
+                              <p className="font-medium truncate text-white/90">{n.title || "(Untitled note)"}</p>
                               <span
                                 className={[
                                   "text-xs px-2 py-0.5 rounded-full",
                                   n.status === "published"
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : "bg-yellow-100 text-yellow-800",
+                                    ? "bg-cyan-400/20 border border-cyan-400/30 text-white/90"
+                                    : "bg-white/10 border border-white/15 text-white/70",
                                 ].join(" ")}
                               >
                                 {n.status === "published" ? "Published" : "Draft"}
                               </span>
                             </div>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-white/60">
                               {new Date(n.created_at).toLocaleString()} • {n.coach_name ?? "Coach"} • {n.visibility}
                             </p>
                           </div>
@@ -563,7 +571,7 @@ function NotesClient() {
                           <div className="flex flex-wrap gap-2 shrink-0">
                             <button
                               onClick={() => void toggleStatus(n)}
-                              className="px-2.5 py-1.5 rounded-md text-sm bg-gray-100 hover:bg-gray-200"
+                              className="px-2.5 py-1.5 rounded-full text-sm border border-white/20 bg-white/5 text-white hover:bg-white/10 transition-colors duration-150"
                               title={n.status === "published" ? "Revert to Draft" : "Publish"}
                               type="button"
                             >
@@ -571,7 +579,7 @@ function NotesClient() {
                             </button>
                             <button
                               onClick={() => void deleteNote(n.id)}
-                              className="px-2.5 py-1.5 rounded-md text-sm bg-rose-100 text-rose-800 hover:bg-rose-200"
+                              className="px-2.5 py-1.5 rounded-full text-sm border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors duration-150"
                               title="Delete note"
                               type="button"
                             >
@@ -580,7 +588,7 @@ function NotesClient() {
                           </div>
                         </div>
 
-                        <pre className="mt-2 text-sm whitespace-pre-wrap break-words text-gray-700">
+                        <pre className="mt-2 text-sm whitespace-pre-wrap break-words text-white/80">
                           {n.content_md.length > 800 ? `${n.content_md.slice(0, 800)}…` : n.content_md}
                         </pre>
                       </li>
@@ -592,6 +600,6 @@ function NotesClient() {
           </div>
         )}
       </div>
-    </main>
+    </GlassLayout>
   );
 }

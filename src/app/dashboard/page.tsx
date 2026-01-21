@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getApiBase } from "@/lib/api";
 import type { Me } from "@/lib/auth";
 import { InlineWidget } from "react-calendly";
+import { GlassLayout, glassCard, buttonPrimary, buttonSecondary } from "../_components/auth/GlassLayout";
 
 const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const COACH_EMAIL = "adilh621+looplab@gmail.com";
@@ -55,7 +56,7 @@ function EditIconButton({ onClick, label }: { onClick: () => void; label: string
     <button
       onClick={onClick}
       aria-label={label}
-      className="ml-2 inline-flex items-center justify-center rounded-md p-1 text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+      className="ml-2 inline-flex items-center justify-center rounded-md p-1 text-white/60 hover:text-white/90 hover:bg-white/10 transition-colors duration-150"
       title={label}
       type="button"
     >
@@ -81,17 +82,17 @@ function Modal({
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
     >
-      <div className="w-[min(92vw,720px)] rounded-2xl bg-white shadow-lg">
-        <div className="p-4 border-b flex items-center justify-between">
-          <h3 id="modal-title" className="text-lg font-semibold">{title}</h3>
+      <div className="w-[min(92vw,720px)] rounded-3xl bg-white/10 border border-white/15 shadow-xl">
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <h3 id="modal-title" className="text-lg font-semibold text-white/90">{title}</h3>
           <button
             onClick={onClose}
-            className="rounded-md p-1 hover:bg-gray-100"
+            className="rounded-md p-1 text-white/60 hover:text-white/90 hover:bg-white/10 transition-colors duration-150"
             aria-label="Close"
             type="button"
           >
@@ -300,87 +301,102 @@ export default function DashboardPage() {
     setMe(meData);
   }
 
+  // Logout handler
+  async function handleLogout() {
+    try {
+      await fetch(`${backend}/auth/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+      router.replace("/login");
+    } catch (err) {
+      console.error("Logout failed:", err);
+      router.replace("/login");
+    }
+  }
+
   if (loading || !me) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6">
-        <div className="w-full max-w-lg border rounded-2xl p-6 shadow-sm text-center">Loading…</div>
-      </main>
+      <GlassLayout>
+        <div className={`${glassCard} text-center text-white/80`}>Loading…</div>
+      </GlassLayout>
     );
   }
 
   return (
-    <main className="min-h-screen p-6 flex flex-col items-center gap-6">
-      {/* ===== Container 1: Welcome + Info + Preferred Days ===== */}
-      <div className="w-full max-w-5xl border rounded-2xl p-6 shadow-sm bg-white">
-        <div className="space-y-1 text-center mb-6">
-          <h1 className="text-2xl font-semibold">Welcome {parentName}! 👋</h1>
-          <p className="text-gray-600">Let&apos;s track {studentName}&apos;s progress{service ? ` in ${service}` : ""}.</p>
-        </div>
-
-        <section className="grid gap-4 sm:grid-cols-2">
-          <div className="border rounded-xl p-4">
-            <h2 className="font-medium mb-2">Account</h2>
-            <dl className="text-sm space-y-1">
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Parent</dt>
-                <dd>{me.intake?.parent_name ?? "—"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Email</dt>
-                <dd>{me.email ?? getIntakeEmail(me) ?? "—"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Timezone</dt>
-                <dd>{me.intake?.timezone ?? "—"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Phone</dt>
-                <dd>{me.intake?.phone ?? "—"}</dd>
-              </div>
-            </dl>
+    <GlassLayout maxWidth="5xl">
+      <div className="space-y-6">
+        {/* ===== Container 1: Welcome + Info + Preferred Days ===== */}
+        <div className={glassCard}>
+          <div className="space-y-1 text-center mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Welcome {parentName}! 👋</h1>
+            <p className="text-white/70">Let&apos;s track {studentName}&apos;s progress{service ? ` in ${service}` : ""}.</p>
           </div>
 
-          <div className="border rounded-xl p-4">
+          <section className="grid gap-4 sm:grid-cols-2">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+              <h2 className="font-medium mb-2 text-white/90">Account</h2>
+              <dl className="text-sm space-y-1">
+                <div className="flex justify-between">
+                  <dt className="text-white/60">Parent</dt>
+                  <dd className="text-white/90">{me.intake?.parent_name ?? "—"}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-white/60">Email</dt>
+                  <dd className="text-white/90">{me.email ?? getIntakeEmail(me) ?? "—"}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-white/60">Timezone</dt>
+                  <dd className="text-white/90">{me.intake?.timezone ?? "—"}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-white/60">Phone</dt>
+                  <dd className="text-white/90">{me.intake?.phone ?? "—"}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-medium text-white/90">Student</h2>
+                <EditIconButton onClick={openStudentEditor} label="Edit student info" />
+              </div>
+              <dl className="text-sm space-y-1">
+                <div className="flex justify-between">
+                  <dt className="text-white/60">Name</dt>
+                  <dd className="text-white/90">{me.intake?.student_name ?? "—"}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-white/60">Age</dt>
+                  <dd className="text-white/90">{me.intake?.student_age ?? "—"}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-white/60">Service</dt>
+                  <dd className="text-white/90">{service ?? "—"}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-white/60">Status</dt>
+                  <dd className="text-white/90">{getIntakeStatus(me) ?? "—"}</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+
+          <section className="mt-4 bg-white/5 border border-white/10 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-medium">Student</h2>
-              <EditIconButton onClick={openStudentEditor} label="Edit student info" />
+              <h2 className="font-medium text-white/90">Preferred Days</h2>
+              <EditIconButton onClick={openDaysEditor} label="Edit preferred days" />
             </div>
-            <dl className="text-sm space-y-1">
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Name</dt>
-                <dd>{me.intake?.student_name ?? "—"}</dd>
+            {preferredDays.length ? (
+              <div className="flex flex-wrap gap-2">
+                {preferredDays.map((d) => (
+                  <span key={d} className="px-3 py-1 rounded-full bg-white/10 border border-white/15 text-sm text-white/90">{d}</span>
+                ))}
               </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Age</dt>
-                <dd>{me.intake?.student_age ?? "—"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Service</dt>
-                <dd>{service ?? "—"}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-gray-500">Status</dt>
-                <dd>{getIntakeStatus(me) ?? "—"}</dd>
-              </div>
-            </dl>
-          </div>
-        </section>
-
-        <section className="mt-4 border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-medium">Preferred Days</h2>
-            <EditIconButton onClick={openDaysEditor} label="Edit preferred days" />
-          </div>
-          {preferredDays.length ? (
-            <div className="flex flex-wrap gap-2">
-              {preferredDays.map((d) => (
-                <span key={d} className="px-3 py-1 rounded-full bg-gray-100 text-sm">{d}</span>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">No days selected yet.</p>
-          )}
-        </section>
+            ) : (
+              <p className="text-sm text-white/60">No days selected yet.</p>
+            )}
+          </section>
 
         {process.env.NODE_ENV !== "production" && (
           <details className="mt-4 border rounded-xl p-4">
@@ -389,123 +405,127 @@ export default function DashboardPage() {
           </details>
         )}
 
-        <div className="mt-4 flex items-center justify-between">
-          <Link href="/" className="px-4 py-2 rounded-lg bg-gray-100">← Back home</Link>
-          <Link href="/login" className="px-4 py-2 rounded-lg bg-black text-white">Switch account</Link>
-        </div>
-      </div>
-
-      {/* ===== Container 2: Sessions (upcoming + previous together) + Calendly ===== */}
-      <div className="w-full max-w-5xl border rounded-2xl p-6 shadow-sm bg-white">
-        <section className="overflow-hidden">
-          <div className="px-1 pb-3 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Sessions</h2>
-            <span className="text-xs text-gray-500">
-              Upcoming in white • Previous in red
-            </span>
+          <div className="mt-6 flex items-center justify-between">
+            <Link href="/" className={buttonSecondary}>
+              ← Back home
+            </Link>
+            <button onClick={handleLogout} className={buttonPrimary}>
+              Log out
+            </button>
           </div>
+        </div>
 
-          <div className="space-y-3">
-            {loadingSessions ? (
-              <p className="text-sm text-gray-500">Loading…</p>
-            ) : (sessions?.upcoming.length ?? 0) + (sessions?.past.length ?? 0) === 0 ? (
-              <p className="text-sm text-gray-500">No sessions yet—book below.</p>
-            ) : (
+        {/* ===== Container 2: Sessions (upcoming + previous together) + Calendly ===== */}
+        <div className={glassCard}>
+          <section className="overflow-hidden">
+            <div className="px-1 pb-3 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-white/90">Sessions</h2>
+              <span className="text-xs text-white/60">
+                Upcoming • Previous
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {loadingSessions ? (
+                <p className="text-sm text-white/60">Loading…</p>
+              ) : (sessions?.upcoming.length ?? 0) + (sessions?.past.length ?? 0) === 0 ? (
+                <p className="text-sm text-white/60">No sessions yet—book below.</p>
+              ) : (
               [...(sessions?.upcoming ?? []).map(s => ({ ...s, kind: "upcoming" as const })),
                ...(sessions?.past ?? []).map(s => ({ ...s, kind: "past" as const }))]
                .map((s, i) => {
                 const isPast = s.kind === "past";
                 return (
-                  <div
-                    key={`${s.id}-${s.calendly_invitee_uuid ?? i}`}
-                    className={[
-                      "rounded-xl border p-4",
-                      isPast
-                        ? "bg-rose-50 border-rose-200"
-                        : "bg-white border-gray-200",
-                    ].join(" ")}
-                  >
+                    <div
+                      key={`${s.id}-${s.calendly_invitee_uuid ?? i}`}
+                      className={[
+                        "rounded-2xl border p-4 transition-colors duration-150",
+                        isPast
+                          ? "bg-white/5 border-white/10"
+                          : "bg-white/8 border-white/15",
+                      ].join(" ")}
+                    >
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{formatRange(s.start_utc, s.end_utc)}</p>
-                          <span
-                            className={[
-                              "text-xs px-2 py-0.5 rounded-full",
-                              isPast
-                                ? "bg-rose-100 text-rose-800"
-                                : "bg-gray-100 text-gray-700",
-                            ].join(" ")}
-                          >
-                            {isPast ? "Previous" : "Upcoming"}
-                          </span>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-white/90">{formatRange(s.start_utc, s.end_utc)}</p>
+                            <span
+                              className={[
+                                "text-xs px-2 py-0.5 rounded-full",
+                                isPast
+                                  ? "bg-white/10 border border-white/15 text-white/70"
+                                  : "bg-cyan-400/20 border border-cyan-400/30 text-white/90",
+                              ].join(" ")}
+                            >
+                              {isPast ? "Previous" : "Upcoming"}
+                            </span>
+                          </div>
+                          <p className="text-sm text-white/70">
+                            {s.location_type ? s.location_type.replace("_", " ") : "Online"}
+                          </p>
                         </div>
-                        <p className="text-sm text-gray-600">
-                          {s.location_type ? s.location_type.replace("_", " ") : "Online"}
-                        </p>
-                      </div>
 
-                      {/* Actions for upcoming */}
-                      <div className="flex flex-wrap gap-2">
-                        {s.kind !== "past" && s.join_url && (
-                          <a
-                            href={s.join_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-2 rounded-lg bg-black text-white text-sm"
-                          >
-                            Join
-                          </a>
-                        )}
-                        {sessionsWithNotes[s.id] && (
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/notes/${s.id}`)}
-                            className="px-3 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                          >
-                            View note
-                          </button>
-                        )}
-                        {s.kind !== "past" && s.reschedule_url && (
-                          <a
-                            href={s.reschedule_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
-                          >
-                            Reschedule
-                          </a>
-                        )}
-                        {s.kind !== "past" && s.cancel_url && (
-                          <a
-                            href={s.cancel_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-2 rounded-lg bg-gray-100 text-sm"
-                          >
-                            Cancel
-                          </a>
-                        )}
+                        {/* Actions for upcoming */}
+                        <div className="flex flex-wrap gap-2">
+                          {s.kind !== "past" && s.join_url && (
+                            <a
+                              href={s.join_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-2 rounded-full bg-white text-gray-900 text-sm font-medium hover:scale-[1.02] transition-transform duration-200"
+                            >
+                              Join
+                            </a>
+                          )}
+                          {sessionsWithNotes[s.id] && (
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/notes/${s.id}`)}
+                              className="px-3 py-2 rounded-full border border-white/20 bg-white/5 text-white text-sm font-medium hover:bg-white/10 transition-colors duration-150"
+                            >
+                              View note
+                            </button>
+                          )}
+                          {s.kind !== "past" && s.reschedule_url && (
+                            <a
+                              href={s.reschedule_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-2 rounded-full border border-white/20 bg-white/5 text-white text-sm font-medium hover:bg-white/10 transition-colors duration-150"
+                            >
+                              Reschedule
+                            </a>
+                          )}
+                          {s.kind !== "past" && s.cancel_url && (
+                            <a
+                              href={s.cancel_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-2 rounded-full border border-white/20 bg-white/5 text-white text-sm font-medium hover:bg-white/10 transition-colors duration-150"
+                            >
+                              Cancel
+                            </a>
+                          )}
+                        </div>
                       </div>
+                      {isCoach && (
+                        <p className="mt-2 text-xs text-white/50">
+                          Session ID: <span className="font-mono">{s.id}</span>
+                        </p>
+                      )}
                     </div>
-                    {isCoach && (
-                      <p className="mt-2 text-xs text-gray-500">
-                        Session ID: <span className="font-mono">{s.id}</span>
-                      </p>
-                    )}
-                  </div>
                 );
               })
             )}
           </div>
         </section>
 
-        {/* Calendly booking */}
-        <section className="mt-6 rounded-xl border overflow-hidden">
-          <div className="px-4 py-3 flex items-center justify-between bg-white">
-            <h3 className="font-medium">Book a session</h3>
-            <span className="text-xs text-gray-500">Powered by Calendly</span>
-          </div>
+            {/* Calendly booking */}
+            <section className="mt-6 rounded-2xl border border-white/10 overflow-hidden bg-white/5">
+              <div className="px-4 py-3 flex items-center justify-between">
+                <h3 className="font-medium text-white/90">Book a session</h3>
+                <span className="text-xs text-white/60">Powered by Calendly</span>
+              </div>
           <div className="h-[720px]">
             <InlineWidget
               url="https://calendly.com/adilh621/code-coaching"
@@ -522,9 +542,10 @@ export default function DashboardPage() {
                 utmMedium: "looplab-dashboard",
                 utmSource: "looplab",
               }}
-            />
-          </div>
-        </section>
+              />
+            </div>
+          </section>
+        </div>
       </div>
 
       {/* Student modal */}
@@ -547,39 +568,39 @@ export default function DashboardPage() {
           }}
         >
           <label className="block text-sm">
-            <span className="text-gray-600">Student name</span>
+            <span className="text-white/80 mb-2 block">Student name</span>
             <input
-              className="mt-1 w-full rounded-lg border p-2"
+              className="mt-1 w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-transparent transition-shadow duration-200"
               value={formStudent.student_name}
               onChange={(e) => setFormStudent(s => ({ ...s, student_name: e.target.value }))}
             />
           </label>
           <label className="block text-sm">
-            <span className="text-gray-600">Age</span>
+            <span className="text-white/80 mb-2 block">Age</span>
             <input
               type="number"
               min={2}
               max={120}
-              className="mt-1 w-full rounded-lg border p-2"
+              className="mt-1 w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-transparent transition-shadow duration-200"
               value={formStudent.student_age}
               onChange={(e) => setFormStudent(s => ({ ...s, student_age: e.target.value }))}
             />
           </label>
           <label className="block text-sm">
-            <span className="text-gray-600">Service</span>
+            <span className="text-white/80 mb-2 block">Service</span>
             <select
-              className="mt-1 w-full rounded-lg border p-2"
+              className="mt-1 w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-transparent transition-shadow duration-200"
               value={formStudent.service}
               onChange={(e) => setFormStudent(s => ({ ...s, service: e.target.value }))}
             >
-              <option value="">—</option>
-              <option value="Coding">Coding</option>
-              <option value="Math">Math</option>
+              <option value="" className="bg-gray-800">—</option>
+              <option value="Coding" className="bg-gray-800">Coding</option>
+              <option value="Math" className="bg-gray-800">Math</option>
             </select>
           </label>
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setOpenStudent(false)} className="px-3 py-2 rounded-lg bg-gray-100">Cancel</button>
-            <button type="submit" className="px-3 py-2 rounded-lg bg-black text-white">Save</button>
+            <button type="button" onClick={() => setOpenStudent(false)} className="px-4 py-2 rounded-full border border-white/20 bg-white/5 text-white hover:bg-white/10 transition-colors duration-150">Cancel</button>
+            <button type="submit" className="px-4 py-2 rounded-full bg-white text-gray-900 hover:scale-[1.02] transition-transform duration-200">Save</button>
           </div>
         </form>
       </Modal>
@@ -600,7 +621,7 @@ export default function DashboardPage() {
         >
           <div className="grid grid-cols-2 gap-2">
             {WEEKDAYS.map((d) => (
-              <label key={d} className="flex items-center gap-2 text-sm">
+              <label key={d} className="flex items-center gap-2 text-sm text-white/90 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formDays.includes(d)}
@@ -609,17 +630,18 @@ export default function DashboardPage() {
                       e.target.checked ? [...cur, d] : cur.filter(x => x !== d)
                     )
                   }
+                  className="w-4 h-4 rounded border-white/20 bg-white/5 text-cyan-400 focus:ring-cyan-400/50"
                 />
                 {d}
               </label>
             ))}
           </div>
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setOpenDays(false)} className="px-3 py-2 rounded-lg bg-gray-100">Cancel</button>
-            <button type="submit" className="px-3 py-2 rounded-lg bg-black text-white">Save</button>
+            <button type="button" onClick={() => setOpenDays(false)} className="px-4 py-2 rounded-full border border-white/20 bg-white/5 text-white hover:bg-white/10 transition-colors duration-150">Cancel</button>
+            <button type="submit" className="px-4 py-2 rounded-full bg-white text-gray-900 hover:scale-[1.02] transition-transform duration-200">Save</button>
           </div>
         </form>
       </Modal>
-    </main>
+    </GlassLayout>
   );
 }
