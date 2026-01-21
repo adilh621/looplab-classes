@@ -437,7 +437,7 @@ function NotesClient() {
               placeholder="e.g. 123"
             />
           </label>
-          <button type="submit" className={buttonPrimary}>Load</button>
+          <button type="submit" className="px-5 py-2.5 rounded-full font-semibold text-gray-900 bg-white hover:scale-[1.02] transition-transform duration-200">Load</button>
         </form>
 
         {/* Session list */}
@@ -528,7 +528,7 @@ function NotesClient() {
                   </div>
 
                   <div className="flex justify-end gap-2">
-                    <button type="submit" className="px-5 py-2.5 rounded-full font-semibold text-white bg-black hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400/50 transition-colors duration-200">
+                    <button type="submit" className="px-5 py-2.5 rounded-full font-semibold text-black bg-black hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400/50 transition-colors duration-200">
                       Save
                     </button>
                   </div>

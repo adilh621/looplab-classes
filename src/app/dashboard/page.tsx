@@ -409,7 +409,7 @@ export default function DashboardPage() {
             <Link href="/" className={buttonSecondary}>
               ← Back home
             </Link>
-            <button onClick={handleLogout} className="px-5 py-2.5 rounded-full font-semibold text-white bg-white text-gray-900 hover:scale-[1.02] transition-transform duration-200">
+            <button onClick={handleLogout} className="px-5 py-2.5 rounded-full font-semibold text-black bg-white hover:scale-[1.02] transition-transform duration-200">
               Sign out
             </button>
           </div>
