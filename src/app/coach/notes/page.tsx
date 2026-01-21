@@ -528,7 +528,7 @@ function NotesClient() {
                   </div>
 
                   <div className="flex justify-end gap-2">
-                    <button type="submit" className="px-5 py-2.5 rounded-full font-semibold text-black bg-black hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400/50 transition-colors duration-200">
+                    <button type="submit" className="px-5 py-2.5 rounded-full font-semibold text-black bg-white hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400/50 transition-colors duration-200">
                       Save
                     </button>
                   </div>
