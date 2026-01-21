@@ -6,7 +6,7 @@ import Link from "next/link";
 import { getApiBase } from "@/lib/api";
 import type { Me } from "@/lib/auth";
 import { InlineWidget } from "react-calendly";
-import { GlassLayout, glassCard, buttonPrimary, buttonSecondary } from "../_components/auth/GlassLayout";
+import { GlassLayout, glassCard, buttonSecondary } from "../_components/auth/GlassLayout";
 
 const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 const COACH_EMAIL = "adilh621+looplab@gmail.com";
@@ -409,8 +409,8 @@ export default function DashboardPage() {
             <Link href="/" className={buttonSecondary}>
               ← Back home
             </Link>
-            <button onClick={handleLogout} className={buttonPrimary}>
-              Log out
+            <button onClick={handleLogout} className="px-5 py-2.5 rounded-full font-semibold text-white bg-white text-gray-900 hover:scale-[1.02] transition-transform duration-200">
+              Sign out
             </button>
           </div>
         </div>
@@ -451,10 +451,10 @@ export default function DashboardPage() {
                             <p className="font-medium text-white/90">{formatRange(s.start_utc, s.end_utc)}</p>
                             <span
                               className={[
-                                "text-xs px-2 py-0.5 rounded-full",
+                                "text-xs px-2 py-0.5 rounded-full font-medium",
                                 isPast
-                                  ? "bg-white/10 border border-white/15 text-white/70"
-                                  : "bg-cyan-400/20 border border-cyan-400/30 text-white/90",
+                                  ? "bg-red-600 text-white border border-red-700"
+                                  : "bg-green-600 text-white border border-green-700",
                               ].join(" ")}
                             >
                               {isPast ? "Previous" : "Upcoming"}

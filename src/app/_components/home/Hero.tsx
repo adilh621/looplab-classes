@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, memo } from "react";
+import { useEffect, useRef } from "react";
 import gsap from "gsap";
-import Link from "next/link";
 import DeviceMock from "./DeviceMock";
 import { SiJavascript, SiPython, SiHtml5, SiScratch } from "react-icons/si";
 

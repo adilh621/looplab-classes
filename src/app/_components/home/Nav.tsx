@@ -128,25 +128,26 @@ export default function Nav() {
                 </button>
               </>
             ) : (
-              <Link
-                href="/login"
-                className={`font-medium text-sm transition-colors duration-200 ${
-                  scrolled ? "text-gray-600 hover:text-gray-900" : "text-white/80 hover:text-white"
-                }`}
-              >
-                Log in
-              </Link>
+              <>
+                <Link
+                  href="/login"
+                  className={`font-medium text-sm transition-colors duration-200 ${
+                    scrolled ? "text-gray-600 hover:text-gray-900" : "text-white/80 hover:text-white"
+                  }`}
+                >
+                  Log in
+                </Link>
+                {/* Get an invite - only visible when logged out */}
+                <a
+                  href="https://looplab.adilh.co/"
+                  className={`font-medium text-sm transition-colors duration-200 ${
+                    scrolled ? "text-gray-600 hover:text-gray-900" : "text-white/80 hover:text-white"
+                  }`}
+                >
+                  Get an invite
+                </a>
+              </>
             )}
-            
-            {/* Get an invite - always visible */}
-            <a
-              href="https://looplab.adilh.co/"
-              className={`font-medium text-sm transition-colors duration-200 ${
-                scrolled ? "text-gray-600 hover:text-gray-900" : "text-white/80 hover:text-white"
-              }`}
-            >
-              Get an invite
-            </a>
             
             <Link
               href="/loopy"

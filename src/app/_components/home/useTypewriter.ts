@@ -38,12 +38,6 @@ export function useTypewriter({
         return;
       }
 
-      const clearAllTimeouts = () => {
-        if (timeoutRef.current) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-      };
 
       const type = () => {
         if (indexRef.current < text.length) {

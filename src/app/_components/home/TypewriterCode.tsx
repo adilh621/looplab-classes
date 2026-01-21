@@ -69,7 +69,7 @@ function highlightCode(line: string): React.ReactElement {
 }
 
 const TypewriterCode = memo(function TypewriterCode({ code = defaultCode, onPhaseChange, onTerminalChange }: TypewriterCodeProps) {
-  const { displayedText, phase, showTerminal, isTyping } = useTypewriter({
+  const { displayedText, phase, showTerminal } = useTypewriter({
     text: code,
     speed: 30,
     pauseAfterTyping: 800,
